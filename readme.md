@@ -5,6 +5,8 @@
 ## Overview
 Discord Injection is a demonstration of intercepting various HTTP requests within the Discord application. This PoC provides insights into potential vulnerabilities and the interception of critical actions.
 
+- If this repository reaches 50 Star ⭐ I add backup codes and security codes 
+
 ## Key Features
 - Intercept login, register, and 2FA login requests
 - Intercept email/password change requests
