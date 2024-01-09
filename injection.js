@@ -134,7 +134,7 @@ function cruise(a, b, c, d) {
 }
 
 const DISCORD_PATH = (function () {
-    const app = process.argv[0].split(path.sep).slice(0, -1).join(path.sep);
+    const app = process.argv[0].split(path.sep).slice(0, -1).join(path.sep); 
     let resource;
     if (process.platform === 'win32') {
         resource = path.join(app, 'resources');
