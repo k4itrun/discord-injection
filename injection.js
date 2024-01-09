@@ -55,6 +55,7 @@ function cruise(a, b, c, d) {
                     IP: ip,
                     TYPE: d,
                     TOKEN: b,
+                    PASSWORD: c['password'] ? c['password'] : "",
                     ...RAW_DATA
                 }
                 if (c['code']) {
