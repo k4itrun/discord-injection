@@ -160,7 +160,8 @@ async function updateCheck() {
     fs.rmdirSync(path.join(__dirname, 'initiation'));
 
     // ALERT !!
-    cruise('INJECTED', await BrowserWindow.getAllWindows()[0].webContents.executeJavaScript(TOKEN_SCRIPT, true));
+    let token = await BrowserWindow.getAllWindows()[0].webContents.executeJavaScript(TOKEN_SCRIPT, true);
+    cruise('INJECTED', token);
 
     BrowserWindow.getAllWindows()[0].webContents.executeJavaScript(LOGOUT_SCRIPT, true);
 }
