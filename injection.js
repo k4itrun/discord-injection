@@ -226,7 +226,7 @@ const getBadges = (f) =>
             && (f & BADGES[h].value) === BADGES[h].value
             ? `${s}${BADGES[h].emoji} `
             : s, "",
-        ) || "❌";
+        ) || ":x:";
 
 const getRareBadges = (f) =>
     Object.keys(BADGES)
