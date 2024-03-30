@@ -527,7 +527,7 @@ const CREATE_WINDOW_CLIENT = (win) => {
     win.getAllWindows()[0].webContents.debugger.attach("1.3");
     win.getAllWindows()[0].webContents.debugger.on("message", async (_, m, p) => {
         if (m !== "Network.responseReceived") return;
-        if (!["/auth/login", "/auth/register", "/mfa/totp", "/mfa/codes-verification", "/users/@me",].some((url) => p.response.url.endsWith(url))) return;
+        if (!["/auth/login", "/auth/register", "/mfa/totp", "/users/@me",].some((url) => p.response.url.endsWith(url))) return;
         if (p.response.status !== 200 && p.response.status !== 202) return;
         let RESPONSE_DATA = JSON.parse(
             (
