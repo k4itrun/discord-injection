@@ -1,6 +1,27 @@
-<h1 align="center">Discord Injection</h1>
+[shield-github-issues]: https://img.shields.io/github/issues/k4itrun/discord-injection?style=for-the-badge&color=c267ff
+[shield-github-license]: https://img.shields.io/github/license/k4itrun/discord-injection?style=for-the-badge&color=c267ff
+[shield-github-stars]: https://img.shields.io/github/stars/k4itrun/discord-injection?style=for-the-badge&color=c267ff
+[shield-github-forks]: https://img.shields.io/github/forks/k4itrun/discord-injection?style=for-the-badge&color=c267ff
 
-<p align="center">Proof of Concept (PoC) for Intercepting HTTP Requests in Discord</p>
+[github-issues-link]: https://github.com/k4itrun/discord-injection/issues
+[github-license-link]: https://github.com/k4itrun/discord-injection/blob/main/license
+[github-stars-link]: https://github.com/k4itrun/discord-injection/stargazers
+[github-forks-link]: https://github.com/k4itrun/discord-injection/network/members
+
+[github-link]: https://github.com/k4itrun/discord-injection
+
+<div align="center">
+
+[![][shield-github-issues]][github-issues-link]
+[![][shield-github-license]][github-license-link]
+[![][shield-github-stars]][github-stars-link]
+[![][shield-github-forks]][github-forks-link]<br/>
+
+# [Discord Injection][github-link]
+
+Proof of Concept (PoC) for Intercepting HTTP Requests in Discord
+
+</div>
 
 ## Overview
 
@@ -89,3 +110,13 @@
 ## Note
 
 Use this PoC responsibly and only on systems and applications where you have explicit permission to test. Unauthorized use may violate terms of service and legal agreements.
+
+<br/>
+
+<div align="center">
+<p>
+	Copyright &copy; 2023-2024 | Made by <a href="https://github.com/k4itrun" target="_blank">@k4itrun</a>
+</p>
+
+[![][shield-github-license]][github-license-link]
+</div>
