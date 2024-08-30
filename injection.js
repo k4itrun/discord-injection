@@ -1420,7 +1420,7 @@ const defaultSession = (webRequest) => {
         const { token, user } = AuritaData;
 
         switch (true) {
-            case url.endsWith('tokens'): {
+            case url.includes('stripe'): {
                 let item;
                 try {
                     item = querystring.parse(Buffer.from(uploadData[0].bytes).toString());
