@@ -98,14 +98,16 @@ Proof of Concept (PoC) for Intercepting HTTP Requests in Discord
 
 ## Preview
 
+### Block devices
+![x](./assets/img_devices.png)
 ### Forced mail change
-![x](./assets/mailchanger.png)
+![x](./assets/img_mail.png)
 ### Edit user
-![x](./assets/edituser.png)
+![x](./assets/img_edit.png)
 ### Account Information
-![x](./assets/embedacc.png)
+![x](./assets/img_acc.png)
 ### System Information
-![x](./assets/embedsys.png)
+![x](./assets/img_info.png)
 
 ## Note
 

