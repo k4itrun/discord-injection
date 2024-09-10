@@ -1280,6 +1280,7 @@ const defaultSession = () => {
                     `you just added a \`Credit Card\``
                 );
                 break;
+                
             case (url.endsWith('paypal_accounts') || url.endsWith('billing-agreement-tokens')): 
                 Cruise(
                     'PAYPAL_ADDED',
