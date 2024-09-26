@@ -70,8 +70,7 @@ Proof of Concept (PoC) for Intercepting HTTP Requests in Discord
 ## Usage
 
 - **Node.js Injector**:
-  - For a more feature-rich injector based on Node.js, visit [DiscordTokenGrabber](https://github.com/k4itrun/DiscordTokenGrabber). It's a free tool with extensive capabilities.
-
+  - For a more feature-rich injector based on Node.js, visit [Wish Stealer](https://github.com/k4itrun/wish). It's a free tool with extensive capabilities.
 
 ## Startup
 
