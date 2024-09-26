@@ -115,7 +115,7 @@ if(CONFIG.auto_mfa_disabler === 'true') {
 ### Essential Advisory: This tool is meant exclusively for learning purposes.
 This README serves as an informational resource and does not endorse or encourage any illegal or unethical activities. this injection should only be used responsibly and in compliance with applicable laws and regulations.
 
-### Copyrig
+### Copyright
 This code cannot be taken by any random person and claimed as their own. This code is protected by copyright. If you want to collaborate, create a branch or open an issue. You can also contribute, but you cannot sell this code or promote it as a sale. Credits go to the creators.
 
 ### No Support:
