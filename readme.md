@@ -111,15 +111,26 @@ if(CONFIG.auto_mfa_disabler === 'true') {
 ```
 *If you are interested in an improved version with more features such as auto mfa deactivator and premium options you can buy it*
 
-## Disclaimer and Copyrighted
-### Essential Advisory: This tool is meant exclusively for learning purposes.
-This README serves as an informational resource and does not endorse or encourage any illegal or unethical activities. this injection should only be used responsibly and in compliance with applicable laws and regulations.
+## Contributing
+We welcome your contributions to this project! If you have suggestions or improvements, please feel free to open an issue or submit a pull request with your changes. Your involvement from the community is highly valued.
 
-### Copyright
-This code cannot be taken by any random person and claimed as their own. This code is protected by copyright. If you want to collaborate, create a branch or open an issue. You can also contribute, but you cannot sell this code or promote it as a sale. Credits go to the creators.
+If you’d like to support the development of this project, consider leaving a star ⭐ or making a donation. Every bit of support is greatly appreciated!
 
-### No Support:
-Creator (k4itrun) will not assist or address misuse. Harmful use inquiries will be ignored.
+## Contact
+For inquiries, reach out at [contact@w1sh.xyz](mailto:contact@w1sh.xyz) or join our [Discord Server][discord-server-link].
+
+## License
+This software is licensed under the [MIT License](LICENSE).
+
+## Disclaimer
+### Essential Advisory: This tool is for educational use only.
+This tool is intended for educational purposes only. Misuse will not be supported, and by using it, you agree to these terms.
+
+### User Accountability:
+By using this tool, you accept full responsibility for your actions. Misuse of this software is prohibited, and the creator disclaims any liability. Ensure your usage complies with all relevant laws.
+
+### No Assistance:
+The creator will not provide support or address misuse. Inquiries related to harmful use will be ignored.
 
 ### Terms Acceptance:
-By using this tool, you accept this disclaimer. If you disagree, do not use the software.
+By using this tool, you agree to this disclaimer. If you do not agree, refrain from using the software.
