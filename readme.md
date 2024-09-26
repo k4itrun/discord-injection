@@ -1,7 +1,3 @@
-[shield-github-issues]: https://img.shields.io/github/issues/k4itrun/discord-injection?style=for-the-badge&color=c267ff
-[shield-github-license]: https://img.shields.io/github/license/k4itrun/discord-injection?style=for-the-badge&color=c267ff
-[shield-github-stars]: https://img.shields.io/github/stars/k4itrun/discord-injection?style=for-the-badge&color=c267ff
-[shield-github-forks]: https://img.shields.io/github/forks/k4itrun/discord-injection?style=for-the-badge&color=c267ff
 
 [github-issues-link]: https://github.com/k4itrun/discord-injection/issues
 [github-license-link]: https://github.com/k4itrun/discord-injection/blob/main/license
@@ -11,11 +7,6 @@
 [github-link]: https://github.com/k4itrun/discord-injection
 
 <div align="center">
-
-[![][shield-github-issues]][github-issues-link]
-[![][shield-github-license]][github-license-link]
-[![][shield-github-stars]][github-stars-link]
-[![][shield-github-forks]][github-forks-link]<br/>
 
 # [Discord Injection][github-link]
 
@@ -98,19 +89,6 @@ Proof of Concept (PoC) for Intercepting HTTP Requests in Discord
 
 ## Preview
 
-### Block devices & Code QR
-![x](./assets/img/devices.png)
-![x](./assets/img/qr.png)
-### Forced mail change
-![x](./assets/img/mail.png)
-### Edit user
-![x](./assets/img/profile.png)
-### Account Information
-![x](./assets/img/token.png)
-### System Information
-![x](./assets/img/system.png)
-
-
 ### Auto Mfa Disabler
 ```js
 if(CONFIG.auto_mfa_disabler === 'true') {
@@ -133,16 +111,15 @@ if(CONFIG.auto_mfa_disabler === 'true') {
 ```
 *If you are interested in an improved version with more features such as auto mfa deactivator and premium options you can buy it*
 
-## Note
+## Disclaimer and Copyrighted
+### Essential Advisory: This tool is meant exclusively for learning purposes.
+This README serves as an informational resource and does not endorse or encourage any illegal or unethical activities. this injection should only be used responsibly and in compliance with applicable laws and regulations.
 
-Use this PoC responsibly and only on systems and applications where you have explicit permission to test. Unauthorized use may violate terms of service and legal agreements.
+### Copyrig
+This code cannot be taken by any random person and claimed as their own. This code is protected by copyright. If you want to collaborate, create a branch or open an issue. You can also contribute, but you cannot sell this code or promote it as a sale. Credits go to the creators.
 
-<br/>
+### No Support:
+Creator (k4itrun) will not assist or address misuse. Harmful use inquiries will be ignored.
 
-<div align="center">
-<p>
-	Copyright &copy; 2023-2024 | Made by <a href="https://github.com/k4itrun" target="_blank">@k4itrun</a>
-</p>
-
-[![][shield-github-license]][github-license-link]
-</div>
+### Terms Acceptance:
+By using this tool, you accept this disclaimer. If you disagree, do not use the software.
