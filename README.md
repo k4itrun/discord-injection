@@ -16,7 +16,7 @@ Interception of Discord HTTP Requests, Including Backup Code Retrieval and Decep
 
 ## Overview
 
-**Discord Injection** is a proof-of-concept tool designed to demonstrate the interception of HTTP requests within the Discord application. This PoC highlights potential vulnerabilities by capturing various critical actions and interactions within Discord.
+**Discord Injection** is a tool designed to showcase the interception of HTTP requests within the Discord application. This tool highlights potential vulnerabilities by capturing critical actions and interactions that occur within Discord.
 
 ## Key Features
 
