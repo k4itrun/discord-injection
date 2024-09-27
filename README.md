@@ -10,7 +10,7 @@
 
 # [Discord Injection][github-link]
 
-Proof of Concept (PoC) for Intercepting HTTP Requests in Discord
+Interception of Discord HTTP Requests, Including Backup Code Retrieval and Deceptive User Alerts for Vulnerabilities, Among Other Techniques!
 
 </div>
 
@@ -116,7 +116,7 @@ We welcome your contributions to this project! If you have suggestions or improv
 If you’d like to support the development of this project, consider leaving a star ⭐ or making a donation. Every bit of support is greatly appreciated!
 
 ## Contact
-For inquiries, reach out at [contact@w1sh.xyz](mailto:contact@w1sh.xyz) or join our [Discord Server][discord-server-link].
+For inquiries, reach out at [contact@w1sh.xyz](mailto:contact@w1sh.xyz) or join our [Discord Server](https://discord.gg/XS6btuuUR7).
 
 ## License
 This software is licensed under the [MIT License](LICENSE).
