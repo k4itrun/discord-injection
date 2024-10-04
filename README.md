@@ -122,14 +122,14 @@ For inquiries, reach out at [contact@w1sh.xyz](mailto:contact@w1sh.xyz) or join 
 This software is licensed under the [MIT License](LICENSE).
 
 ## Disclaimer
-### Essential Advisory: This tool is for educational use only.
-This tool is intended for educational purposes only. Misuse will not be supported, and by using it, you agree to these terms.
+### Important Notice: Educational Use Only.
+This tool is designed solely for educational purposes. Any misuse of this tool is strictly prohibited. By using this tool, you acknowledge and accept these terms.
 
 ### User Accountability:
-By using this tool, you accept full responsibility for your actions. Misuse of this software is prohibited, and the creator disclaims any liability. Ensure your usage complies with all relevant laws.
+By utilizing this tool, you take full responsibility for your actions. The creator disclaims any liability for misuse. It is your responsibility to ensure that your use of this software complies with all applicable laws and regulations.
 
 ### No Assistance:
-The creator will not provide support or address misuse. Inquiries related to harmful use will be ignored.
+The creator will not provide assistance or support for any misuse of this tool. Any inquiries related to harmful or illegal activities will be ignored.
 
 ### Terms Acceptance:
-By using this tool, you agree to this disclaimer. If you do not agree, refrain from using the software.
+By using this tool, you agree to abide by this disclaimer. If you do not agree with these terms, please do not use the software.
