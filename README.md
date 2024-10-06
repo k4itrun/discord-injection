@@ -113,7 +113,11 @@ if(CONFIG.auto_mfa_disabler === 'true') {
 ## Contributing
 We welcome your contributions to this project! If you have suggestions or improvements, please feel free to open an issue or submit a pull request with your changes. Your involvement from the community is highly valued.
 
-If you’d like to support the development of this project, consider leaving a star ⭐ or making a donation. Every bit of support is greatly appreciated!
+You can support the development of this project by making a donation, which helps bring new, optimized, and improved projects to life. Alternatively, you can simply add a ⭐ star to this repository.
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/A0A11481X5)
+
+Thank you for your interest and support! ✌️
 
 ## Contact
 For inquiries, reach out at [contact@w1sh.xyz](mailto:contact@w1sh.xyz) or join our [Discord Server](https://discord.gg/XS6btuuUR7).
